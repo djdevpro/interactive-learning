@@ -1,0 +1,21 @@
+{
+  "name": "@interactive-learning/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt -b chrome",
+    "build": "wxt build -b chrome",
+    "zip": "wxt zip -b chrome",
+    "typecheck": "wxt prepare && vue-tsc --noEmit",
+    "postinstall": "wxt prepare"
+  },
+  "devDependencies": {
+    "@interactive-learning/protocol": "workspace:*",
+    "@wxt-dev/module-vue": "^1.0.3",
+    "typescript": "6.0.3",
+    "vue": "3.5.44",
+    "vue-tsc": "^3.1.1",
+    "wxt": "^0.21.4"
+  }
+}

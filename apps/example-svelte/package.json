@@ -1,0 +1,21 @@
+{
+  "name": "@interactive-learning/example-svelte",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4319 --strictPort",
+    "build": "vite build",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@interactive-learning/player": "workspace:*",
+    "svelte": "5.57.2"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.3.1",
+    "svelte-check": "4.7.6",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}

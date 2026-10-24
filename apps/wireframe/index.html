@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Prototype de navigation</title>
+  </head>
+  <body>
+    <aside class="sidebar" aria-label="Navigation principale">
+      <div class="workspace-label">Espace de travail</div>
+      <nav>
+        <a href="#/overview" data-nav="overview"
+          ><span class="nav-symbol" aria-hidden="true">◫</span>Vue d’ensemble</a
+        >
+        <a href="#/projects" data-nav="projects"
+          ><span class="nav-symbol" aria-hidden="true">□</span>Projets</a
+        >
+        <a href="#/activity" data-nav="activity"
+          ><span class="nav-symbol" aria-hidden="true">≡</span>Activité</a
+        >
+      </nav>
+      <div class="sidebar-placeholder" aria-hidden="true">
+        <span class="skeleton w-70"></span>
+        <span class="skeleton w-45"></span>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="breadcrumb">
+          <span>Espace de travail</span><span aria-hidden="true">/</span
+          ><strong id="breadcrumb-current">Projets</strong>
+        </div>
+        <div class="profile-placeholder" aria-hidden="true">
+          <span class="skeleton w-70"></span><span class="avatar-placeholder"></span>
+        </div>
+      </header>
+
+      <main>
+        <section data-view="overview" hidden aria-labelledby="overview-title">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">VUE D’ENSEMBLE</p>
+              <h1 id="overview-title">Votre espace, en un coup d’œil</h1>
+              <p class="page-description">Un point de départ pour retrouver vos projets.</p>
+            </div>
+            <a class="button button-primary" href="#/projects"
+              >Voir les projets <span aria-hidden="true">→</span></a
+            >
+          </div>
+          <div class="summary-grid">
+            <article class="panel summary">
+              <h2>Projets ouverts</h2>
+              <strong class="metric">02</strong
+              ><span class="skeleton w-55" aria-hidden="true"></span>
+            </article>
+            <article class="panel summary">
+              <h2>À venir</h2>
+              <strong class="metric">—</strong
+              ><span class="skeleton w-70" aria-hidden="true"></span>
+            </article>
+            <article class="panel summary">
+              <h2>Terminés</h2>
+              <strong class="metric">—</strong
+              ><span class="skeleton w-45" aria-hidden="true"></span>
+            </article>
+          </div>
+          <div class="panel overview-panel">
+            <h2>Aperçu de l’activité</h2>
+            <div class="chart-placeholder" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <span class="skeleton w-45" aria-hidden="true"></span>
+          </div>
+        </section>
+
+        <section data-view="projects" aria-labelledby="projects-title">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">ESPACE DE TRAVAIL</p>
+              <h1 id="projects-title">Projets</h1>
+              <p class="page-description">Retrouvez vos projets ou créez-en un nouveau.</p>
+            </div>
+            <a class="button button-primary" href="#/projects/new"
+              ><span aria-hidden="true">+</span>Nouveau projet</a
+            >
+          </div>
+          <div class="panel project-list">
+            <div class="panel-heading">
+              <h2>Tous les projets</h2>
+              <span class="count" id="project-count">2 projets</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Nom</th>
+                  <th scope="col">Statut</th>
+                  <th scope="col">Description</th>
+                  <th scope="col"><span class="sr-only">Ouvrir</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <a class="project-link" href="#/projects/a"
+                      ><span class="project-icon" aria-hidden="true"></span>Projet A</a
+                    >
+                  </td>
+                  <td><span class="badge">En cours</span></td>
+                  <td><span class="skeleton w-70" aria-hidden="true"></span></td>
+                  <td>
+                    <a class="open-link" href="#/projects/a" aria-label="Ouvrir Projet A">↗</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <a class="project-link" href="#/projects/b"
+                      ><span class="project-icon" aria-hidden="true"></span>Projet B</a
+                    >
+                  </td>
+                  <td><span class="badge">À préparer</span></td>
+                  <td><span class="skeleton w-45" aria-hidden="true"></span></td>
+                  <td>
+                    <a class="open-link" href="#/projects/b" aria-label="Ouvrir Projet B">↗</a>
+                  </td>
+                </tr>
+                <tr id="created-project-row" hidden>
+                  <td>
+                    <a class="project-link" href="#/projects/demo"
+                      ><span class="project-icon" aria-hidden="true"></span
+                      ><span id="created-project-name"></span
+                    ></a>
+                  </td>
+                  <td><span class="badge">À préparer</span></td>
+                  <td><span class="skeleton w-55" aria-hidden="true"></span></td>
+                  <td>
+                    <a
+                      class="open-link"
+                      href="#/projects/demo"
+                      aria-label="Ouvrir le nouveau projet"
+                      >↗</a
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="table-footer">
+              <span class="skeleton w-25" aria-hidden="true"></span
+              ><span class="skeleton w-15" aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="placeholder-grid" aria-hidden="true">
+            <div class="panel placeholder-panel">
+              <span class="skeleton w-45"></span><span class="skeleton w-90"></span
+              ><span class="skeleton w-70"></span>
+            </div>
+            <div class="panel placeholder-panel">
+              <span class="skeleton w-35"></span><span class="skeleton w-80"></span
+              ><span class="skeleton w-55"></span>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="new" hidden aria-labelledby="new-title">
+          <a class="back-link" href="#/projects">← Retour aux projets</a>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">NOUVEAU PROJET</p>
+              <h1 id="new-title">Créer un projet</h1>
+              <p class="page-description">Quelques informations pour commencer.</p>
+            </div>
+          </div>
+          <form id="project-form" class="panel form-panel">
+            <div class="panel-heading">
+              <h2>Informations générales</h2>
+              <span class="count">Étape 1 sur 1</span>
+            </div>
+            <div class="form-content">
+              <label for="project-name"
+                >Nom du projet <span class="required-note">(obligatoire)</span></label
+              >
+              <input
+                id="project-name"
+                name="name"
+                type="text"
+                placeholder="Ex. Projet de démonstration"
+                required
+                maxlength="80"
+                autocomplete="off"
+              />
+              <label for="project-description"
+                >Description <span class="required-note">(facultatif)</span></label
+              >
+              <textarea
+                id="project-description"
+                name="description"
+                placeholder="Décrivez le projet en quelques mots…"
+                maxlength="500"
+                rows="4"
+              ></textarea>
+              <p class="field-help">Vous pourrez compléter ces informations plus tard.</p>
+            </div>
+            <div class="form-actions">
+              <a class="button button-secondary" href="#/projects">Annuler</a
+              ><button class="button button-primary" type="submit">
+                Créer le projet <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section data-view="detail" hidden aria-labelledby="detail-title">
+          <a class="back-link" href="#/projects">← Retour aux projets</a>
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">FICHE PROJET</p>
+              <h1 id="detail-title">Projet de démonstration</h1>
+              <p class="page-description" id="detail-description">
+                Un espace pour organiser les prochaines étapes.
+              </p>
+            </div>
+            <span class="badge badge-large">À préparer</span>
+          </div>
+          <div class="success-message" id="project-success" role="status">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <strong>Projet créé</strong>
+              <p>Votre projet est prêt. Vous pouvez maintenant le compléter.</p>
+            </div>
+          </div>
+          <div class="detail-grid">
+            <div class="panel detail-panel">
+              <h2>Prochaines étapes</h2>
+              <div class="checklist-placeholder" aria-hidden="true">
+                <span class="empty-check"></span><span class="skeleton w-70"></span>
+              </div>
+              <div class="checklist-placeholder" aria-hidden="true">
+                <span class="empty-check"></span><span class="skeleton w-55"></span>
+              </div>
+              <div class="checklist-placeholder" aria-hidden="true">
+                <span class="empty-check"></span><span class="skeleton w-80"></span>
+              </div>
+            </div>
+            <div class="panel detail-panel">
+              <h2>Informations</h2>
+              <div class="info-line"><span>Statut</span><strong>À préparer</strong></div>
+              <div class="info-line">
+                <span>Équipe</span><span class="skeleton w-35" aria-hidden="true"></span>
+              </div>
+              <div class="info-line">
+                <span>Échéance</span><span class="skeleton w-25" aria-hidden="true"></span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section data-view="activity" hidden aria-labelledby="activity-title">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">ESPACE DE TRAVAIL</p>
+              <h1 id="activity-title">Activité</h1>
+              <p class="page-description">Les dernières actions dans votre espace.</p>
+            </div>
+            <a class="button button-secondary" href="#/projects">Voir les projets</a>
+          </div>
+          <div class="panel activity-panel">
+            <h2>Activité récente</h2>
+            <div class="activity-row">
+              <span class="activity-dot" aria-hidden="true"></span>
+              <div>
+                <strong>Espace prêt à être utilisé</strong>
+                <p>Créez un projet pour commencer.</p>
+              </div>
+            </div>
+            <div class="activity-row" aria-hidden="true">
+              <span class="activity-dot"></span>
+              <div><span class="skeleton w-70"></span><span class="skeleton w-45"></span></div>
+            </div>
+            <div class="activity-row" aria-hidden="true">
+              <span class="activity-dot"></span>
+              <div><span class="skeleton w-55"></span><span class="skeleton w-35"></span></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "@interactive-learning/example-html",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4320 --strictPort",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@interactive-learning/player": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "8.3.5"
+  }
+}

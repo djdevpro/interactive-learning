@@ -1,0 +1,69 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  color: #202328;
+  background: white;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+.example-page {
+  width: 100%;
+  padding: 6px;
+}
+.guide-status {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  min-height: 240px;
+  padding: 20px;
+  text-align: center;
+}
+.guide-status > p {
+  max-width: 55ch;
+  overflow-wrap: anywhere;
+}
+.guide-retry {
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #d7dae0;
+  border-radius: 6px;
+  background: white;
+  color: #202328;
+  font: inherit;
+  cursor: pointer;
+}
+.guide-retry:hover {
+  background: #f4f5f7;
+}
+.guide-retry:focus-visible {
+  outline: 2px solid #343b48;
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

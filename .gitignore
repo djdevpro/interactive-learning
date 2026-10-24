@@ -1,0 +1,22 @@
+node_modules/
+dist/
+.output/
+.wxt/
+.svelte-kit/
+.pnpm-store/
+*.tgz
+coverage/
+.playwright/
+artifacts/
+.artifacts/
+.learning/
+.env*
+!.env.example
+
+# Local business captures are never part of the public SDK repository.
+examples/tu-commences-demain/
+apps/example/public/courses/
+examples/captures/
+apps/example/src/TrainingDemo.vue
+apps/example/src/demo.css
+scripts/build-example.mjs

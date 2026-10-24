@@ -1,0 +1,50 @@
+{
+  "name": "@interactive-learning/recorder",
+  "version": "0.1.0",
+  "description": "Browser-independent capture authoring tools for Interactive Learning guides.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/djdevpro/interactive-learning.git",
+    "directory": "packages/recorder"
+  },
+  "homepage": "https://github.com/djdevpro/interactive-learning/tree/main/packages/recorder#readme",
+  "bugs": {
+    "url": "https://github.com/djdevpro/interactive-learning/issues"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "interactive-learning": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "image-size": "^2.0.2"
+  },
+  "devDependencies": {
+    "@interactive-learning/protocol": "workspace:*",
+    "@types/node": "^24.0.0",
+    "tsdown": "0.23.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

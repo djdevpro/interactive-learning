@@ -1,0 +1,62 @@
+{
+  "title": "Créer un projet",
+  "description": "Un parcours simple dans une maquette filaire : ouvrir, renseigner, vérifier et valider.",
+  "steps": [
+    {
+      "file": "01-projects.jpg",
+      "position": "first",
+      "title": "Ouvrir un nouveau projet",
+      "description": "Depuis la liste, cliquez sur « Nouveau projet ».",
+      "durationMs": 2500,
+      "cursor": true,
+      "annotations": [
+        {
+          "title": "Nouveau projet",
+          "body": "Ce bouton ouvre le formulaire. Les projets existants restent dans la liste."
+        }
+      ]
+    },
+    {
+      "file": "02-new-project.jpg",
+      "position": "second",
+      "title": "Renseigner les informations",
+      "description": "Donnez un nom au projet. La description est facultative.",
+      "durationMs": 2500,
+      "cursor": true,
+      "annotations": [
+        {
+          "title": "Nom du projet",
+          "body": "Le nom est obligatoire. Ajoutez ensuite une courte description pour préciser le projet."
+        }
+      ]
+    },
+    {
+      "file": "03-filled-project.jpg",
+      "position": "third",
+      "title": "Vérifier avant de créer",
+      "description": "Relisez les champs remplis, puis cliquez sur « Créer le projet ».",
+      "durationMs": 3500,
+      "cursor": true,
+      "annotations": [
+        {
+          "title": "Créer le projet",
+          "body": "Cette capture montre le formulaire avant validation. Le bouton confirme la création."
+        }
+      ]
+    },
+    {
+      "file": "04-project-created.jpg",
+      "position": "fourth",
+      "title": "Retrouver le projet créé",
+      "description": "La fiche s’ouvre avec une confirmation. Revenez à la liste pour retrouver votre projet.",
+      "durationMs": 2500,
+      "cursor": false,
+      "annotations": [
+        {
+          "title": "Projet créé",
+          "body": "La confirmation indique que l’action a réussi. La maquette conserve le projet pendant cette visite, sans serveur ni compte."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": true,
+    "types": ["svelte"]
+  },
+  "include": ["svelte/**/*.ts", "svelte/**/*.svelte"],
+  "exclude": ["dist", "node_modules"]
+}

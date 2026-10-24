@@ -1,0 +1,51 @@
+{
+  "name": "interactive-learning",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@9.10.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "courses:assemble": "node scripts/build-courses.mjs",
+    "example:assemble": "node scripts/assemble-wireframe.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev": "pnpm --filter @interactive-learning/example dev",
+    "dev:vue": "pnpm --filter @interactive-learning/example dev",
+    "dev:react": "pnpm --filter @interactive-learning/example-react dev",
+    "dev:svelte": "pnpm --filter @interactive-learning/example-svelte dev",
+    "dev:html": "pnpm --filter @interactive-learning/example-html dev",
+    "dev:wireframe": "pnpm --filter @interactive-learning/wireframe dev",
+    "dev:all": "pnpm --parallel --filter \"@interactive-learning/example*\" --fail-if-no-match dev",
+    "build": "pnpm --filter @interactive-learning/protocol build && pnpm --filter @interactive-learning/vue build && pnpm --filter @interactive-learning/player build && pnpm --filter @interactive-learning/recorder build && pnpm --filter @interactive-learning/extension build && node scripts/copy-companions.mjs && pnpm build:examples",
+    "build:examples": "pnpm --filter \"@interactive-learning/example*\" --filter @interactive-learning/wireframe --fail-if-no-match build",
+    "typecheck": "pnpm --filter @interactive-learning/protocol build && pnpm --filter @interactive-learning/vue build && pnpm --filter @interactive-learning/player build && pnpm -r --if-present typecheck",
+    "postinstall": "pnpm --filter @interactive-learning/protocol build",
+    "test": "vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "extension:dev": "pnpm --filter @interactive-learning/extension dev",
+    "cli": "node packages/recorder/dist/cli.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "deploy": "gh workflow run release.yml --ref main -f create_version_pr=true",
+    "release": "pnpm typecheck && pnpm build && changeset publish",
+    "release:pack": "node scripts/release-pack.mjs",
+    "pack:check": "node scripts/verify-packages.mjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "typescript": "6.0.3",
+      "vite": "8.3.5"
+    }
+  },
+  "devDependencies": {
+    "@changesets/cli": "3.0.3",
+    "@types/node": "24.19.2",
+    "prettier": "3.9.10",
+    "prettier-plugin-svelte": "4.1.1",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

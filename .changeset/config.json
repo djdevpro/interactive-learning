@@ -1,0 +1,23 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [["@interactive-learning/vue", "@interactive-learning/player"]],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": [
+    "@interactive-learning/protocol",
+    "@interactive-learning/example",
+    "@interactive-learning/example-react",
+    "@interactive-learning/example-svelte",
+    "@interactive-learning/example-html",
+    "@interactive-learning/wireframe",
+    "@interactive-learning/extension"
+  ],
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  }
+}

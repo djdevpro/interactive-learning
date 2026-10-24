@@ -1,0 +1,12 @@
+{
+  "extends": "../vue/tsconfig.json",
+  "compilerOptions": { "jsx": "react-jsx", "rootDir": ".." },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.vue",
+    "../vue/src/**/*.vue",
+    "../vue/src/**/*.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "../vue/src/**/*.test.ts", "dist"]
+}

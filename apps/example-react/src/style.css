@@ -1,0 +1,15 @@
+:root {
+  font-family: system-ui, sans-serif;
+  background: white;
+  color: #202328;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 6px;
+}
+
+#app {
+  min-width: 0;
+}

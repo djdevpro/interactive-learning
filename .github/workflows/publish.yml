@@ -1,0 +1,92 @@
+name: Publish npm
+
+# Bootstrap each package on npm, then configure this exact workflow as its trusted publisher.
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.plan.outputs.publish-plan-artifact-id }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6.1.0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: changesets/action/select-mode@v2.1.2
+        id: plan
+      - name: Require prepared versions
+        if: steps.plan.outputs.mode == 'version'
+        run: |
+          echo 'Changesets are pending. Run Prepare release, merge its version PR, then publish.'
+          exit 1
+      - name: Nothing to publish
+        if: steps.plan.outputs.mode == 'none'
+        run: echo 'All current package versions are already published.'
+
+  pack:
+    needs: plan
+    if: needs.plan.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6.1.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm typecheck
+      - run: pnpm build
+      - uses: changesets/action/pack@v2.1.2
+        id: pack
+        with:
+          publish-plan-artifact-id: ${{ needs.plan.outputs.publish-plan-artifact-id }}
+
+  publish:
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6.1.0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: changesets/action/publish@v2.1.2
+        with:
+          pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}
+          create-github-releases: true
+          push-git-tags: true
