@@ -15,13 +15,22 @@ npx -y @interactive-learning/recorder skill install --agent claude
 npx -y @interactive-learning/recorder skill install --agent codex
 ```
 
-**Refine it in the studio.** The studio opens a guide of your project in the browser, with the step editor of the extension and a live preview. Each save writes `guide.json` and its images in place, so a guide prepared by an AI agent is finished where it already lives.
+**From the command line.** `create`, `capture add`, `annotate` and `validate` build a guide from screenshot files. Run them with npx or add `@interactive-learning/recorder` as a dev dependency. [Recorder README](packages/recorder/README.md)
+
+## Refine a guide in the studio
+
+![The studio, with the steps on the left, the step editor in the middle and a live preview of the player on the right](.github/assets/studio.png)
+
+A first recording rarely says everything. The studio opens a guide of your project in the browser so you can finish it by hand, whoever recorded it.
+
+- **A guide written by your AI agent** already sits in the public folder of the project. Open it as is.
+- **A guide recorded with the extension** comes as a ZIP. Unzip it in the public folder, for example in `public/guides/sign-up/`, then open it.
 
 ```sh
 npx -y @interactive-learning/recorder studio --guide public/guides/sign-up/guide.json
 ```
 
-**From the command line.** `create`, `capture add`, `annotate` and `validate` build a guide from screenshot files. Run them with npx or add `@interactive-learning/recorder` as a dev dependency. [Recorder README](packages/recorder/README.md)
+Click a screenshot to add markers, drag or delete them and write their texts. Fix step titles and page addresses, replace a screenshot or delete a step, and check the result in the preview. Each save writes `guide.json` and its images in place, so there is nothing to export afterwards. If the agent changes the guide while the studio is open, the studio does not overwrite it and offers to reload it.
 
 ## Play a guide
 
