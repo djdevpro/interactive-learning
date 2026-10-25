@@ -22,6 +22,8 @@ export interface PlayerProperties {
   assetBaseUrl: string;
   /** Shows the guide and step titles and descriptions, hidden by default. */
   showInformation: boolean;
+  /** Shows the address of the page of each step above the screenshot. The info button toggles it. */
+  showAddress: boolean;
   /** `light`, `dark` or `system` (default). The bulb button switches between light and dark. */
   theme: GuideTheme;
   /** Replaces any built-in text. The language follows the `lang` attribute, then English. */

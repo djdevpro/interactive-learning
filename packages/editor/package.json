@@ -1,0 +1,25 @@
+{
+  "name": "@interactive-learning/editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./draft": "./src/draft.ts",
+    "./style.css": "./src/style.css"
+  },
+  "scripts": {
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": "3.5.44"
+  },
+  "dependencies": {
+    "@interactive-learning/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vue": "3.5.44",
+    "vue-tsc": "3.3.13"
+  }
+}

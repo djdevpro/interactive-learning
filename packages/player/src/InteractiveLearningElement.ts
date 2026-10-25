@@ -97,6 +97,7 @@ export class InteractiveLearningElement
     src: {},
     assetBaseUrl: { attribute: 'asset-base-url' },
     showInformation: { type: Boolean, attribute: 'show-information', reflect: true },
+    showAddress: { type: Boolean, attribute: 'show-address', reflect: true },
     theme: { reflect: true },
     messages: { attribute: false },
   };
@@ -114,6 +115,8 @@ export class InteractiveLearningElement
   declare assetBaseUrl: string;
   /** Shows the guide and step titles and descriptions around the screenshot. */
   declare showInformation: boolean;
+  /** Shows the address of the page of each step above the screenshot. The info button toggles it. */
+  declare showAddress: boolean;
   /** `system` follows the operating system until the viewer picks light or dark. */
   declare theme: GuideTheme;
   /** Replaces any built-in text. The language follows the `lang` attribute, then English. */
@@ -142,6 +145,7 @@ export class InteractiveLearningElement
     this.src = '';
     this.assetBaseUrl = '';
     this.showInformation = false;
+    this.showAddress = false;
     this.theme = 'system';
     this.messages = undefined;
     this.#view = {
@@ -789,6 +793,7 @@ export class InteractiveLearningElement
     const lastStep = (view.guide?.steps.length ?? 1) - 1;
 
     return html`<div class="il-guide__screen">
+        ${this.#renderAddress(text)}
         <div
           class="il-guide__canvas"
           style=${styleMap({
@@ -926,6 +931,21 @@ export class InteractiveLearningElement
                 >${formatTime(snapshot.totalMs)}</span
               >
               <div class="il-guide__view-controls">
+                ${
+                  this.#hasAddresses
+                    ? html`<button
+                        class="il-guide__control"
+                        type="button"
+                        aria-label=${text.address(this.showAddress)}
+                        title=${text.address(this.showAddress)}
+                        aria-pressed=${this.showAddress}
+                        data-testid="guide-address"
+                        @click=${() => (this.showAddress = !this.showAddress)}
+                      >
+                        ${icon('info', 17)}
+                      </button>`
+                    : nothing
+                }
                 <button
                   class="il-guide__control"
                   type="button"
@@ -1082,6 +1102,32 @@ export class InteractiveLearningElement
             </div>`
           : nothing
       }`;
+  }
+
+  /** True when at least one step knows the address of its page. */
+  get #hasAddresses(): boolean {
+    return this.#view.guide?.steps.some((step) => step.source?.url) ?? false;
+  }
+
+  #renderAddress(text: PlayerMessages) {
+    if (!this.showAddress || !this.#hasAddresses) return nothing;
+    const url = this.#currentStep?.source?.url;
+    // Hash routers keep the page after `#`, so the label keeps everything but the scheme.
+    const label = url?.replace(/^https?:\/\//, '').replace(/\/$/, '') ?? '';
+    return html`<div class="il-guide__address" aria-live="polite">
+      ${icon('globe', 15)}
+      ${
+        url
+          ? html`<a
+              href=${url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title=${text.openAddress(label)}
+              >${label}</a
+            >`
+          : html`<span>${text.noAddress}</span>`
+      }
+    </div>`;
   }
 
   #renderInformation(text: PlayerMessages) {

@@ -16,6 +16,7 @@ function apply(): void {
   player.theme = data.get('theme') as GuideTheme;
   player.lang = String(data.get('lang'));
   player.showInformation = data.has('information');
+  player.showAddress = data.has('address');
   player.style.setProperty('--il-accent', String(data.get('accent')));
   player.style.setProperty('--il-radius', `${data.get('radius')}px`);
   field<HTMLOutputElement>('radiusValue').value = `${data.get('radius')}px`;

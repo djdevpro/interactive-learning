@@ -1,3 +1,5 @@
+import type { GuideAnnotation, GuideCursor } from '@interactive-learning/protocol';
+
 export const CHANNEL = 'interactive-learning/recorder';
 export const SESSION_KEY = 'interactive-learning:session';
 
@@ -33,8 +35,21 @@ export interface RecorderState {
 
 export type Command =
   | { channel: typeof CHANNEL; type: 'state' }
-  | { channel: typeof CHANNEL; type: 'start'; title: string }
-  | { channel: typeof CHANNEL; type: 'pause' | 'resume' | 'capture' | 'stop' }
+  | { channel: typeof CHANNEL; type: 'start'; title: string; tabId: number }
+  | { channel: typeof CHANNEL; type: 'pause' | 'resume' | 'capture' | 'stop' | 'discard' }
+  | { channel: typeof CHANNEL; type: 'retake' | 'delete-step'; stepId: string }
+  | { channel: typeof CHANNEL; type: 'import'; guideId: string }
+  | {
+      channel: typeof CHANNEL;
+      type: 'edit-step';
+      stepId: string;
+      title: string;
+      description: string;
+      cursor: GuideCursor | null;
+      annotations: GuideAnnotation[];
+      /** Address of the page of the step. Empty removes it, undefined keeps it. */
+      url?: string;
+    }
   | {
       channel: typeof CHANNEL;
       type: 'observation';
@@ -76,6 +91,19 @@ export function isCommand(value: unknown): value is Command {
   return (
     candidate.channel === CHANNEL &&
     typeof candidate.type === 'string' &&
-    ['state', 'start', 'pause', 'resume', 'capture', 'stop', 'observation'].includes(candidate.type)
+    [
+      'state',
+      'start',
+      'pause',
+      'resume',
+      'capture',
+      'stop',
+      'discard',
+      'import',
+      'edit-step',
+      'retake',
+      'delete-step',
+      'observation',
+    ].includes(candidate.type)
   );
 }

@@ -5,6 +5,7 @@
     {
       "file": "01-projects.jpg",
       "position": "first",
+      "route": "/projects",
       "title": "Ouvrir un nouveau projet",
       "description": "Depuis la liste, cliquez sur « Nouveau projet ».",
       "durationMs": 2500,
@@ -19,6 +20,7 @@
     {
       "file": "02-new-project.jpg",
       "position": "second",
+      "route": "/projects/new",
       "title": "Renseigner les informations",
       "description": "Donnez un nom au projet. La description est facultative.",
       "durationMs": 2500,
@@ -33,6 +35,7 @@
     {
       "file": "03-filled-project.jpg",
       "position": "third",
+      "route": "/projects/new",
       "title": "Vérifier avant de créer",
       "description": "Relisez les champs remplis, puis cliquez sur « Créer le projet ».",
       "durationMs": 3500,
@@ -47,6 +50,7 @@
     {
       "file": "04-project-created.jpg",
       "position": "fourth",
+      "route": "/projects/demo",
       "title": "Retrouver le projet créé",
       "description": "La fiche s’ouvre avec une confirmation. Revenez à la liste pour retrouver votre projet.",
       "durationMs": 2500,

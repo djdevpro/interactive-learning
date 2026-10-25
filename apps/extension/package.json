@@ -11,6 +11,7 @@
     "postinstall": "wxt prepare"
   },
   "devDependencies": {
+    "@interactive-learning/editor": "workspace:*",
     "@interactive-learning/protocol": "workspace:*",
     "@wxt-dev/module-vue": "^1.0.3",
     "typescript": "6.0.3",

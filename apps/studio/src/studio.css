@@ -1,0 +1,206 @@
+/* Studio layout: the steps, the open step, then the preview. The controls come from the editor. */
+body {
+  background: var(--bg);
+}
+
+.studio {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+}
+
+.studio-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.studio-mark {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 24px;
+  height: 24px;
+  padding: 5px 5px 6px;
+  border-radius: 6px;
+  background: #1c6651;
+}
+
+.studio-mark span {
+  flex: 1;
+  border-radius: 2px;
+  background: #ffffff;
+}
+
+.studio-mark span:nth-child(1) {
+  height: 55%;
+}
+
+.studio-mark span:nth-child(2) {
+  height: 100%;
+}
+
+.studio-mark span:nth-child(3) {
+  height: 75%;
+}
+
+.studio-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.studio-file {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font:
+    12.5px/1.4 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.studio-status::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.studio-status[data-state='busy']::before {
+  background: var(--warn);
+}
+
+.studio-status[data-state='conflict'] {
+  color: var(--record);
+}
+
+.studio-status[data-state='conflict']::before {
+  background: var(--record);
+}
+
+.studio-body {
+  display: grid;
+  grid-template-columns: 280px minmax(420px, 560px) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.studio-steps,
+.studio-editor,
+.studio-preview {
+  min-height: 0;
+  overflow: auto;
+}
+
+.studio-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-right: 1px solid var(--line);
+}
+
+.studio-editor {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+}
+
+.studio-editor .content {
+  flex: 1;
+}
+
+.studio-empty {
+  padding: 32px 24px;
+}
+
+.studio-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--surface);
+}
+
+.studio-preview interactive-learning {
+  display: block;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.studio-shortcut code {
+  font:
+    12px/1.4 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+
+kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--field-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    11.5px/1.4 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+
+@media (max-width: 1180px) {
+  .studio-body {
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .studio-editor {
+    border-right: 0;
+  }
+
+  .studio-preview {
+    grid-column: 1 / -1;
+    max-height: 48vh;
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 760px) {
+  .studio {
+    height: auto;
+  }
+
+  .studio-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-steps,
+  .studio-editor,
+  .studio-preview {
+    overflow: visible;
+    max-height: none;
+    border-right: 0;
+  }
+}

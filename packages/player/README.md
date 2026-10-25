@@ -145,6 +145,7 @@ declare module 'svelte/elements' {
 | `src`                                  | Property and attribute. URL of the guide JSON       |
 | `assetBaseUrl` / `asset-base-url`      | Prefix for relative image paths                     |
 | `showInformation` / `show-information` | Titles and descriptions, hidden by default          |
+| `showAddress` / `show-address`         | Page address of each step, hidden by default        |
 | `theme`                                | Property and attribute. `light`, `dark` or `system` |
 | `messages`                             | Property. Replaces any built-in text                |
 | `lang`                                 | Interface language, inherited from the page         |
@@ -157,7 +158,7 @@ declare module 'svelte/elements' {
 | `guide-load`                           | Event with `detail.guide`, once the player is ready |
 | `guide-error`                          | Event with `detail.message`, already translated     |
 
-`show-information` and `theme` reflect their attribute. The bulb button updates `theme` before it fires `theme-change`, so you can store the viewer choice. A boolean attribute is on when present, so remove it or set the property to `false` to turn it off.
+`show-information`, `show-address` and `theme` reflect their attribute. When steps record the address of their page, an info button next to the bulb shows or hides it above the screenshot. The bulb button updates `theme` before it fires `theme-change`, so you can store the viewer choice. A boolean attribute is on when present, so remove it or set the property to `false` to turn it off.
 
 Events bubble and cross the Shadow DOM boundary. Commands work after `guide-load`, and Play waits for the first image by itself. Moving the element in the page keeps the playback position, and removing it frees the player.
 

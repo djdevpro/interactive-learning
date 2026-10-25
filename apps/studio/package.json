@@ -1,0 +1,22 @@
+{
+  "name": "@interactive-learning/studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@interactive-learning/editor": "workspace:*",
+    "@interactive-learning/player": "workspace:*",
+    "@interactive-learning/protocol": "workspace:*",
+    "vue": "3.5.44"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.10",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vue-tsc": "3.3.13"
+  }
+}

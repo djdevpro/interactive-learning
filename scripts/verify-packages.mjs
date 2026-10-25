@@ -162,10 +162,10 @@ function checkArchive(files, expectedName, expectedVersion) {
     ].filter(Boolean)) {
       member(`dist/extension/chrome-mv3/${file}`);
     }
-    assert(
-      ![...files.keys()].some((name) => name.startsWith('package/dist/studio/')),
-      'The recorder must not ship the removed Studio.',
-    );
+    const studio = member('dist/studio/index.html').data.toString();
+    for (const [, file] of studio.matchAll(/(?:src|href)="\.\/(assets\/[^"]+)"/g)) {
+      member(`dist/studio/${file}`);
+    }
   }
 }
 
@@ -221,12 +221,13 @@ const doctor = cli('doctor');
 assert.equal(doctor.ok, true);
 assert.equal(doctor.skillAvailable, true);
 assert.equal(doctor.extensionAvailable, true);
+assert.equal(doctor.studioAvailable, true);
 assert.equal(doctor.capabilities.browserAutomation, false);
 assert.equal(cli('extension', 'path').available, true);
 assert.equal(cli('skill', 'path').available, true);
 assert.equal(cli('skill', 'install', '--out', 'installed-skill').path, resolve('installed-skill'));
 assert((await readFile('installed-skill/SKILL.md', 'utf8')).length > 0);
-console.log('Installed runtime, capture workflow, CLI, extension and skill: OK');
+console.log('Installed runtime, capture workflow, CLI, extension, studio and skill: OK');
 `;
 
 await mkdir(outputDirectory, { recursive: true });
@@ -345,6 +346,7 @@ const report = {
     'custom-elements-manifest',
     'executable-cli',
     'extension',
+    'studio',
     'skill',
     'isolated-install',
     'typescript-consumer',

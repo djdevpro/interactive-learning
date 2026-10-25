@@ -12,7 +12,7 @@ import {
   withGuideLock,
   writeGuideAtomically,
 } from './files.js';
-import { assertAssetMetadata, readDataImage, readImage } from './images.js';
+import { assertAssetMetadata, inspectImage, readDataImage, readImage } from './images.js';
 import type { ImageData } from './images.js';
 
 export interface CreateGuideOptions {
@@ -147,6 +147,11 @@ export class RecordingSession {
       await writeGuideAtomically(this.guidePath, document, raw);
       return { step, annotationsRequireReview: step.annotations.length > 0 };
     });
+  }
+
+  /** Copies an image into `assets/` without listing it, for the studio to place in a step. */
+  async importImage(bytes: Buffer): Promise<GuideAsset> {
+    return this.storeImage({ assets: [] as GuideAsset[] } as GuideDocument, inspectImage(bytes));
   }
 
   private async storeImage(document: GuideDocument, image: ImageData): Promise<GuideAsset> {

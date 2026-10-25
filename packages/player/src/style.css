@@ -103,6 +103,39 @@
 .il-guide__screen {
   padding: 0;
 }
+/* Address of the page of the current step, like the bar of a browser. */
+.il-guide__address {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin-bottom: 8px;
+  padding: 0 12px;
+  border-radius: var(--_radius);
+  background: var(--_surface);
+  color: var(--_muted);
+  font-size: 13px;
+}
+.il-guide__address svg {
+  flex: none;
+}
+.il-guide__address a,
+.il-guide__address span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.il-guide__address a {
+  color: var(--_ink);
+  text-decoration: none;
+}
+.il-guide__address a:hover {
+  text-decoration: underline;
+}
+.il-guide__address a:focus-visible {
+  outline: 2px solid var(--_focus);
+  outline-offset: 2px;
+}
 .il-guide__canvas {
   position: relative;
   width: 100%;

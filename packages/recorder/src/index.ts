@@ -9,6 +9,8 @@ export type {
 } from './recording-session.js';
 export { GuideExporter } from './guide-exporter.js';
 export type { ExportGuideOptions, ExportGuideResult } from './guide-exporter.js';
+export { startStudio } from './studio-server.js';
+export type { Studio, StudioOptions } from './studio-server.js';
 export type {
   GuideDocument,
   GuideAsset,

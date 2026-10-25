@@ -77,6 +77,12 @@ describe('guide contract', () => {
     expect(sanitizeSourceUrl('https://user:password@example.test/form?token=secret#private')).toBe(
       'https://example.test/form',
     );
+    expect(sanitizeSourceUrl('https://app.test/#/projects/new?invite=secret')).toBe(
+      'https://app.test/#/projects/new',
+    );
+    expect(sanitizeSourceUrl('https://app.test/callback#access_token=secret')).toBe(
+      'https://app.test/callback',
+    );
     expect(sanitizeSourceUrl('file:///private')).toBeUndefined();
   });
 });

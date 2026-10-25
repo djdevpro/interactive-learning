@@ -327,3 +327,57 @@ describe('CLI and bundled assets', () => {
     expect(await readFile(guidePath, 'utf8')).toBe(before);
   });
 });
+
+describe('archives and page addresses', () => {
+  it('records the page address of a capture and exports a ZIP the extension can import', async () => {
+    const { readZip, validateGuide } = await import('@interactive-learning/protocol');
+    const lines: string[] = [];
+    const output = {
+      stdout: (line: string) => lines.push(line),
+      stderr: (line: string) => lines.push(line),
+    };
+    expect(await runCli(['create', '--title', 'Zip', '--out', guidePath], output)).toBe(0);
+    expect(
+      await runCli(
+        [
+          'capture',
+          'add',
+          '--guide',
+          guidePath,
+          '--image',
+          imagePath,
+          '--url',
+          'http://localhost:3000/projects?tab=2#top',
+        ],
+        output,
+      ),
+    ).toBe(0);
+    const guide = JSON.parse(await readFile(guidePath, 'utf8'));
+    expect(guide.steps[0].source.url).toBe('http://localhost:3000/projects');
+
+    const zipPath = resolve(directory, 'guide.zip');
+    expect(await runCli(['export', '--guide', guidePath, '--out', zipPath, '--zip'], output)).toBe(
+      0,
+    );
+    const entries = await readZip(new Uint8Array(await readFile(zipPath)));
+    expect(entries.map(({ name }) => name)).toEqual([
+      'guide.json',
+      expect.stringMatching(/^assets\/[0-9a-f]{64}\.png$/),
+    ]);
+    const exported = validateGuide(JSON.parse(new TextDecoder().decode(entries[0]!.data)));
+    expect(exported.assets[0]?.src).toBe(entries[1]?.name);
+    expect(Buffer.from(entries[1]!.data).equals(png)).toBe(true);
+
+    expect(await runCli(['export', '--guide', guidePath, '--out', zipPath, '--zip'], output)).toBe(
+      1,
+    );
+    expect(lines.at(-1)).toContain('EXPORT_EXISTS');
+    expect(
+      await runCli(
+        ['capture', 'add', '--guide', guidePath, '--image', imagePath, '--url', 'ftp://host/file'],
+        output,
+      ),
+    ).toBe(1);
+    expect(lines.at(-1)).toContain('--url');
+  });
+});

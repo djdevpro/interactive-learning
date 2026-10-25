@@ -18,6 +18,9 @@ export interface PlayerMessages {
   timeline: string;
   timelineValue: (elapsed: string, total: string, step: number) => string;
   theme: (current: GuideColorScheme) => string;
+  address: (visible: boolean) => string;
+  noAddress: string;
+  openAddress: (address: string) => string;
   enterFullscreen: string;
   exitFullscreen: string;
   fullscreenDenied: string;
@@ -66,6 +69,9 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
       current === 'dark'
         ? 'Dark theme. Switch to light theme'
         : 'Light theme. Switch to dark theme',
+    address: (visible) => (visible ? 'Hide the page address' : 'Show the page address'),
+    noAddress: 'No page address for this step',
+    openAddress: (address) => `Open ${address} in a new tab`,
     enterFullscreen: 'Enter full screen',
     exitFullscreen: 'Exit full screen',
     fullscreenDenied: 'The browser did not allow full screen. You can keep watching here.',
@@ -112,6 +118,10 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
       current === 'dark'
         ? 'Thème sombre. Passer au thème clair'
         : 'Thème clair. Passer au thème sombre',
+    address: (visible) =>
+      visible ? "Masquer l'adresse de la page" : "Afficher l'adresse de la page",
+    noAddress: "Pas d'adresse de page pour cette étape",
+    openAddress: (address) => `Ouvrir ${address} dans un nouvel onglet`,
     enterFullscreen: 'Agrandir le lecteur',
     exitFullscreen: 'Quitter le plein écran',
     fullscreenDenied:

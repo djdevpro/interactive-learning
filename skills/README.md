@@ -22,6 +22,6 @@ The command never overwrites an existing folder. To update the skill, delete its
 
 ## Use it
 
-Ask the agent something like "Create an interactive guide that shows how to create a project on http://localhost:3000". Claude Code also lists the skill as `/interactive-learning`.
+Ask the agent something like "Create an interactive guide that shows how to create a project on http://localhost:3000". Claude Code also lists the skill as `/interactive-learning`. The agent finds the public folder of your project from its stack and writes the guide there, in `guides/<name>/guide.json` with the screenshots as separate files in `assets/`. The site then shows it with `<interactive-learning src="/guides/<name>/guide.json">`. To finish the guide by hand, run `npx -y @interactive-learning/recorder studio --guide <public folder>/guides/<name>/guide.json`.
 
 The agent needs a browser tool that can save screenshots as files, such as Claude in Chrome. Without one, record the flow with the browser extension shipped in the recorder package. `npx -y @interactive-learning/recorder extension path` prints its folder.

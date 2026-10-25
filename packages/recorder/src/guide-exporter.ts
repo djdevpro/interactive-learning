@@ -1,5 +1,6 @@
 import { lstat, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { createZip, validateGuide, type ZipEntry } from '@interactive-learning/protocol';
 import { isNodeError, RecorderError } from './errors.js';
 import {
   readGuide,
@@ -23,11 +24,56 @@ export interface ExportGuideResult {
   embedded: boolean;
 }
 
+export interface ExportZipResult {
+  file: string;
+  assetCount: number;
+  stepCount: number;
+}
+
 export class GuideExporter {
   readonly guidePath: string;
 
   constructor(guidePath: string) {
     this.guidePath = resolveGuidePath(guidePath);
+  }
+
+  /**
+   * One archive with `guide.json` and its images in `assets/`. The browser extension imports it
+   * to edit the guide, and unzipping it in a public folder gives the files the player loads.
+   */
+  async exportZip(outFile: string): Promise<ExportZipResult> {
+    if (!outFile.trim())
+      throw new RecorderError('INVALID_EXPORT_PATH', 'The output file is required.');
+    const file = resolve(outFile);
+    await rejectSymlink(file);
+    const { document } = await readGuide(this.guidePath);
+    const images: ZipEntry[] = [];
+    for (const asset of document.assets) {
+      const image = asset.src.startsWith('data:')
+        ? readDataImage(asset.src)
+        : await readImage(await resolveAssetPath(this.guidePath, asset.src));
+      assertAssetMetadata(asset, image);
+      asset.src = `assets/${image.hash}.${image.extension}`;
+      if (!images.some(({ name }) => name === asset.src))
+        images.push({ name: asset.src, data: image.bytes });
+    }
+    const json = `${JSON.stringify(validateGuide(document), null, 2)}\n`;
+    const archive = createZip([
+      { name: 'guide.json', data: new TextEncoder().encode(json) },
+      ...images,
+    ]);
+    await mkdir(dirname(file), { recursive: true });
+    try {
+      await writeFile(file, archive, { flag: 'wx' });
+    } catch (error) {
+      if (isNodeError(error, 'EEXIST'))
+        throw new RecorderError(
+          'EXPORT_EXISTS',
+          'The output file already exists. Choose a new name.',
+        );
+      throw error;
+    }
+    return { file, assetCount: document.assets.length, stepCount: document.steps.length };
   }
 
   async export(options: ExportGuideOptions): Promise<ExportGuideResult> {

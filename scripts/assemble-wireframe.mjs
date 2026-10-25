@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { copyFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -80,6 +80,8 @@ for (const [index, step] of document.steps.entries()) {
   const point = positions[definition.position];
   step.source = {
     capturedAt: (await stat(resolve(captures, definition.file))).mtime.toISOString(),
+    // The prototype routes with the fragment, served by pnpm dev:wireframe.
+    url: `http://127.0.0.1:4321/#${definition.route}`,
     viewport: point.viewport,
     scroll: point.scroll,
     reason: 'ai-screenshot',
@@ -87,10 +89,10 @@ for (const [index, step] of document.steps.entries()) {
 }
 await writeFile(guidePath, `${JSON.stringify(validateGuide(document), null, 2)}\n`);
 await cli('validate', '--guide', guidePath);
-await cli('export', '--guide', guidePath, '--out', resolve(work, 'portable'), '--embed');
+// Screenshots stay separate files next to guide.json, so the player loads a small JSON first.
+await cli('export', '--guide', guidePath, '--out', resolve(work, 'portable'));
 const target = resolve(root, 'apps/example/public/example');
+await rm(resolve(target, 'assets'), { recursive: true, force: true });
 await mkdir(target, { recursive: true });
-await copyFile(resolve(work, 'portable/guide.json'), resolve(target, 'guide.json'));
-console.log(
-  `Guide wireframe assemblé : ${manifest.steps.length} captures, partagé par Vue, React, Svelte et HTML.`,
-);
+await cp(resolve(work, 'portable'), target, { recursive: true });
+console.log(`Example guide assembled with ${manifest.steps.length} screenshots in ${target}.`);

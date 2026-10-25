@@ -4,9 +4,10 @@ import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path
 import { fileURLToPath } from 'node:url';
 import { isNodeError, RecorderError } from './errors.js';
 
-export function bundledAssetPath(kind: 'skill' | 'extension'): string {
+export function bundledAssetPath(kind: 'skill' | 'extension' | 'studio'): string {
   const base = dirname(fileURLToPath(import.meta.url));
-  return kind === 'skill' ? resolve(base, 'skill') : resolve(base, 'extension', 'chrome-mv3');
+  if (kind === 'extension') return resolve(base, 'extension', 'chrome-mv3');
+  return resolve(base, kind);
 }
 
 /** User-level skill folder read by each supported agent. */

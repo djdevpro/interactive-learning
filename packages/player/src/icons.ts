@@ -12,7 +12,9 @@ export type IconName =
   | 'expand'
   | 'contract'
   | 'bulb-light'
-  | 'bulb-dark';
+  | 'bulb-dark'
+  | 'info'
+  | 'globe';
 
 const line = (d: string, width = 1.8): SVGTemplateResult =>
   svg`<path d=${d} stroke="currentColor" stroke-width=${width} stroke-linecap="round" stroke-linejoin="round" />`;
@@ -37,6 +39,8 @@ const shapes: Record<IconName, SVGTemplateResult> = {
   // Lit for the light theme, unlit for the dark theme.
   'bulb-light': svg`<path d=${bulb} fill="currentColor" />${line(bulb, 1.7)}${line('M9.5 19h5M10.5 21.5h3', 1.7)}`,
   'bulb-dark': svg`${line(bulb, 1.7)}${line('M9.5 19h5M10.5 21.5h3', 1.7)}`,
+  info: svg`<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7" />${line('M12 11v5.2M12 7.7v.1', 1.9)}`,
+  globe: svg`<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6" />${line('M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5Z', 1.6)}`,
 };
 
 export function icon(name: IconName, size = 20): TemplateResult {

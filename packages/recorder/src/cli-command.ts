@@ -1,10 +1,13 @@
+import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { ParseArgsConfig } from 'node:util';
+import { sanitizeSourceUrl } from '@interactive-learning/protocol';
 import packageMetadata from '../package.json' with { type: 'json' };
 import { GuideExporter } from './guide-exporter.js';
 import { RecorderError } from './errors.js';
 import { RecordingSession } from './recording-session.js';
+import { startStudio } from './studio-server.js';
 import {
   agentSkillPath,
   assetAvailable,
@@ -28,11 +31,13 @@ const help = {
   description: 'Create and edit guides from imported screenshots. This CLI never drives a browser.',
   commands: [
     'create --title <title> --out <guide.json> [--description <text>]',
-    'capture add --guide <guide.json> --image <image> [--title <title>] [--description <text>] [--x <0..1> --y <0..1>] [--duration-ms <400..120000>]',
-    'capture replace --guide <guide.json> --step <step-id> --image <image>',
+    'capture add --guide <guide.json> --image <image> [--url <page address>] [--title <title>] [--description <text>] [--x <0..1> --y <0..1>] [--duration-ms <400..120000>]',
+    'capture replace --guide <guide.json> --step <step-id> --image <image> [--url <page address>]',
     'annotate --guide <guide.json> --step <step-id> --x <0..1> --y <0..1> --title <title> [--body <text>]',
     'validate --guide <guide.json>',
+    'studio --guide <guide.json> [--port <port>] [--no-open]',
     'export --guide <guide.json> --out <new-directory> [--embed]',
+    'export --guide <guide.json> --out <new-file.zip> --zip',
     'extension path',
     'skill path',
     'skill install --agent <claude|codex>',
@@ -88,6 +93,33 @@ function numeric(values: CliValues, key: string): number {
   return number;
 }
 
+/** The page a capture shows. Query strings and fragments are dropped, as in the extension. */
+function captureSource(values: CliValues): { source?: { capturedAt: string; url: string } } {
+  const raw = optional(values, 'url');
+  if (raw === undefined) return {};
+  const url = sanitizeSourceUrl(raw);
+  if (!url)
+    throw new RecorderError('INVALID_ARGUMENT', 'Option --url must be an http or https address.');
+  return { source: { capturedAt: new Date().toISOString(), url } };
+}
+
+/** Best effort: the address is printed anyway, so a missing browser only skips this step. */
+function openBrowser(url: string): void {
+  const [command, args]: [string, string[]] =
+    process.platform === 'win32'
+      ? ['cmd', ['/c', 'start', '', url]]
+      : process.platform === 'darwin'
+        ? ['open', [url]]
+        : ['xdg-open', [url]];
+  try {
+    const child = spawn(command, args, { detached: true, stdio: 'ignore', windowsHide: true });
+    child.on('error', () => {});
+    child.unref();
+  } catch {
+    // The printed address still works.
+  }
+}
+
 export async function runCli(argv: string[], output: CliOutput = defaultOutput): Promise<number> {
   const print = (result: unknown) => output.stdout(JSON.stringify(result));
   try {
@@ -114,10 +146,11 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
       }
       case 'capture': {
         if (args[0] === 'replace') {
-          const values = options(args.slice(1), ['guide', 'step', 'image']);
+          const values = options(args.slice(1), ['guide', 'step', 'image', 'url']);
           const session = new RecordingSession(required(values, 'guide'));
           const result = await session.replaceCapture(required(values, 'step'), {
             imagePath: required(values, 'image'),
+            ...captureSource(values),
           });
           print({
             ok: true,
@@ -143,6 +176,7 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
           'x',
           'y',
           'duration-ms',
+          'url',
         ]);
         const hasX = values.x !== undefined;
         const hasY = values.y !== undefined;
@@ -153,6 +187,7 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
           imagePath: required(values, 'image'),
           title: optional(values, 'title'),
           description: optional(values, 'description'),
+          ...captureSource(values),
           ...(values['duration-ms'] !== undefined
             ? { durationMs: numeric(values, 'duration-ms') }
             : {}),
@@ -209,13 +244,51 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
         return 0;
       }
       case 'export': {
-        const values = options(args, ['guide', 'out'], ['embed']);
+        const values = options(args, ['guide', 'out'], ['embed', 'zip']);
         const exporter = new GuideExporter(required(values, 'guide'));
+        if (values.zip === true) {
+          if (values.embed === true)
+            throw new RecorderError('INVALID_ARGUMENT', 'Use either --zip or --embed.');
+          const result = await exporter.exportZip(required(values, 'out'));
+          print({ ok: true, command: 'export.zip', ...result });
+          return 0;
+        }
         const result = await exporter.export({
           outDirectory: required(values, 'out'),
           embed: values.embed === true,
         });
         print({ ok: true, command: 'export', ...result });
+        return 0;
+      }
+      case 'studio': {
+        const values = options(args, ['guide', 'port'], ['no-open']);
+        const port = values.port === undefined ? 0 : numeric(values, 'port');
+        if (!Number.isInteger(port) || port < 0 || port > 65535)
+          throw new RecorderError('INVALID_ARGUMENT', 'Option --port must be a port number.');
+        // A development build of the studio can replace the bundled one.
+        const appDirectory =
+          process.env.INTERACTIVE_LEARNING_STUDIO_APP ?? bundledAssetPath('studio');
+        if (!(await assetAvailable(resolve(appDirectory, 'index.html'))))
+          throw new RecorderError(
+            'STUDIO_NOT_FOUND',
+            'The studio is missing from this distribution.',
+          );
+        const studio = await startStudio({
+          guidePath: required(values, 'guide'),
+          appDirectory,
+          port,
+        });
+        print({
+          ok: true,
+          command: 'studio',
+          url: studio.url,
+          message: 'The studio saves the guide in place. Press Ctrl+C to stop it.',
+        });
+        if (values['no-open'] !== true) openBrowser(studio.url);
+        const stop = () => void studio.close();
+        process.once('SIGINT', stop);
+        process.once('SIGTERM', stop);
+        await studio.closed;
         return 0;
       }
       case 'doctor': {
@@ -232,10 +305,12 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
           extensionAvailable: await assetAvailable(
             resolve(bundledAssetPath('extension'), 'manifest.json'),
           ),
+          studioAvailable: await assetAvailable(resolve(bundledAssetPath('studio'), 'index.html')),
           capabilities: {
             importImages: true,
             annotate: true,
             export: true,
+            studio: true,
             browserAutomation: false,
           },
           browser:
