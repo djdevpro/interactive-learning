@@ -78,6 +78,14 @@ const summary = computed(() =>
     .join(' · '),
 );
 const notice = computed(() => state.value.diagnostics[0]?.message);
+/** Chrome hides the tab from the extension: only a click on the toolbar icon gives it back. */
+const accessLost = computed(
+  () =>
+    onThisTab.value &&
+    state.value.status === 'paused' &&
+    state.value.pausedFor !== 'user' &&
+    (page.value.kind === 'locked' || state.value.pausedFor === 'access'),
+);
 
 function imageOf(assetId: string): string {
   return guide.value?.assets.find((asset) => asset.id === assetId)?.src ?? '';
@@ -270,10 +278,11 @@ onUnmounted(() => {
   <div class="shell">
     <header class="tab-chip" :data-status="onThisTab ? state.status : 'idle'">
       <Icon name="lock" />
-      <span class="tab-host" :title="tab?.url">{{ page.host || 'This page' }}</span>
+      <span class="tab-host" :title="tab?.url">{{ page.host || 'This tab' }}</span>
       <span v-if="onThisTab && state.status === 'recording'" class="tab-state recording">
         <span class="dot" aria-hidden="true"></span>Recording
       </span>
+      <span v-else-if="accessLost" class="tab-state paused">Access needed</span>
       <span v-else-if="onThisTab && state.status === 'paused'" class="tab-state paused">
         Paused
       </span>
@@ -436,6 +445,10 @@ onUnmounted(() => {
         >
           <Icon name="camera" />Capture step
         </button>
+        <p v-else-if="accessLost" class="access-hint grow">
+          <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+          <span>Click this icon in the toolbar to continue.</span>
+        </p>
         <button
           v-else
           class="primary grow"

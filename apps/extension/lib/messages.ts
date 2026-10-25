@@ -25,7 +25,13 @@ export interface RecorderState {
   title: string;
   tabId?: number;
   windowId?: number;
+  /** Origin where the recording started. Pages of the same site are recorded too. */
   origin?: string;
+  /**
+   * Why a paused recording stopped. A click on the toolbar icon resumes it, except after `user`:
+   * `site` when the tab left the site, `access` when Chrome withdrew the access to the tab.
+   */
+  pausedFor?: 'user' | 'site' | 'access';
   stepCount: number;
   imageBytes: number;
   lastCaptureAt: number;
@@ -69,6 +75,33 @@ export function idleState(): RecorderState {
     lastCaptureAt: 0,
     diagnostics: [],
   };
+}
+
+// Second-level labels that form a public suffix with a country code, as in example.co.uk.
+const SHARED_SECOND_LEVELS = new Set(['ac', 'co', 'com', 'edu', 'gov', 'net', 'org']);
+
+/**
+ * The site of an address: its registrable domain, so www.shop.test, app.shop.test and shop.test
+ * belong together whatever the scheme, plus the port, so two local servers stay apart.
+ */
+export function siteOf(address: string): string {
+  const url = new URL(address);
+  const labels = url.hostname.split('.');
+  let site = url.hostname;
+  if (labels.length > 2 && !/^[\d.]+$/.test(url.hostname)) {
+    const top = labels.at(-1) ?? '';
+    const second = labels.at(-2) ?? '';
+    site = labels.slice(top.length === 2 && SHARED_SECOND_LEVELS.has(second) ? -3 : -2).join('.');
+  }
+  return url.port ? `${site}:${url.port}` : site;
+}
+
+export function sameSite(a: string, b: string): boolean {
+  try {
+    return siteOf(a) === siteOf(b);
+  } catch {
+    return false;
+  }
 }
 
 /** Strict matching favours an omitted pointer over one pointing at the wrong screen. */

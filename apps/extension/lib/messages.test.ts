@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sameView, type CaptureContext } from './messages';
+import { sameSite, sameView, siteOf, type CaptureContext } from './messages';
 
 const view: CaptureContext = {
   url: 'https://demo.example/form',
@@ -29,5 +29,30 @@ describe('matching a pointer to a captured view', () => {
 
   it('rejects a new document even if its URL and viewport are identical', () => {
     expect(sameView(view, { ...view, documentToken: 'reloaded-document' })).toBe(false);
+  });
+});
+
+describe('sites of the recorded pages', () => {
+  it.each([
+    ['https://miralomenu.com/', 'https://www.miralomenu.com/carta'],
+    ['https://shop.test/', 'http://app.shop.test/login'],
+    ['https://www.example.co.uk/', 'https://example.co.uk/basket'],
+    ['http://localhost:3000/', 'http://localhost:3000/#/projects'],
+  ])('keeps %s and %s together', (a, b) => {
+    expect(sameSite(a, b)).toBe(true);
+  });
+
+  it.each([
+    ['https://miralomenu.com/', 'https://accounts.google.com/'],
+    ['https://one.co.uk/', 'https://two.co.uk/'],
+    ['http://localhost:3000/', 'http://localhost:5173/'],
+    ['https://shop.test/', 'not an address'],
+  ])('keeps %s and %s apart', (a, b) => {
+    expect(sameSite(a, b)).toBe(false);
+  });
+
+  it('names the registrable domain', () => {
+    expect(siteOf('https://www.miralomenu.com/carta')).toBe('miralomenu.com');
+    expect(siteOf('http://192.168.1.20:8080/')).toBe('192.168.1.20:8080');
   });
 });

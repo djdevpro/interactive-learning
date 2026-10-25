@@ -11,6 +11,8 @@ const environment = vi.hoisted(() => ({
   context: {} as CaptureContext,
   failCapture: false,
   otherUrl: undefined as string | undefined,
+  failInject: false,
+  hideUrl: false,
 }));
 
 vi.mock('wxt/browser', () => ({
@@ -24,7 +26,12 @@ vi.mock('wxt/browser', () => ({
       },
     },
     action: { setBadgeText: vi.fn(), setBadgeBackgroundColor: vi.fn() },
-    scripting: { executeScript: vi.fn(async () => []) },
+    scripting: {
+      executeScript: vi.fn(async () => {
+        if (environment.failInject) throw new Error('Cannot access contents of the page.');
+        return [];
+      }),
+    },
     tabs: {
       query: vi.fn(async () => [
         { id: environment.activeId, windowId: 1, url: environment.context.url },
@@ -32,7 +39,12 @@ vi.mock('wxt/browser', () => ({
       get: vi.fn(async (id: number) => ({
         id,
         windowId: 1,
-        url: id === 7 ? environment.context.url : environment.otherUrl,
+        url:
+          id === 7
+            ? environment.hideUrl
+              ? undefined
+              : environment.context.url
+            : environment.otherUrl,
       })),
       sendMessage: vi.fn(async () => structuredClone(environment.context)),
       captureVisibleTab: vi.fn(async () => {
@@ -80,6 +92,8 @@ beforeEach(() => {
   environment.captures = [];
   environment.failCapture = false;
   environment.otherUrl = undefined;
+  environment.failInject = false;
+  environment.hideUrl = false;
   environment.context = {
     url: 'https://demo.example/form',
     title: 'Formulaire',
@@ -369,5 +383,61 @@ describe('imported guides and page addresses', () => {
     await edit('');
     expect(currentGuide().steps[0]?.source).toBeDefined();
     expect(currentGuide().steps[0]?.source?.url).toBeUndefined();
+  });
+});
+
+describe('pages of the same site and lost access', () => {
+  const stateOf = () => environment.stored[SESSION_KEY] as RecorderState;
+
+  it('keeps recording when the address moves to www on the same site', async () => {
+    const controller = new RecorderController();
+    await finish(controller.command({ channel: CHANNEL, type: 'start', tabId: 7, title: 'Site' }));
+    environment.context = { ...environment.context, url: 'https://www.demo.example/menu' };
+    await finish(controller.navigation(7, 'https://www.demo.example/menu'));
+    expect(stateOf().status).toBe('recording');
+    expect(currentGuide().steps.at(-1)?.source?.url).toBe('https://www.demo.example/menu');
+  });
+
+  it('pauses when Chrome withdraws access, then resumes on a click on the icon', async () => {
+    const controller = new RecorderController();
+    await finish(
+      controller.command({ channel: CHANNEL, type: 'start', tabId: 7, title: 'Access' }),
+    );
+    environment.failInject = true;
+    await finish(controller.navigation(7, 'https://www.demo.example/menu'));
+    expect(stateOf()).toMatchObject({ status: 'paused', pausedFor: 'access' });
+    expect(stateOf().diagnostics[0]?.message).toContain('icon in the toolbar');
+
+    environment.failInject = false;
+    const state = await finish(controller.accessGranted(7));
+    expect(state.status).toBe('recording');
+    expect(state.pausedFor).toBeUndefined();
+    expect(currentGuide().steps.at(-1)?.title).toBe('Walkthrough resumed');
+  });
+
+  it('explains how to give access back instead of blaming the site', async () => {
+    const controller = new RecorderController();
+    await finish(
+      controller.command({ channel: CHANNEL, type: 'start', tabId: 7, title: 'Hidden' }),
+    );
+    await finish(controller.navigation(7, 'https://accounts.example/login'));
+    expect(stateOf()).toMatchObject({ status: 'paused', pausedFor: 'site' });
+    environment.hideUrl = true;
+    await expect(finish(controller.command({ channel: CHANNEL, type: 'resume' }))).rejects.toThrow(
+      'icon in the toolbar',
+    );
+    environment.hideUrl = false;
+    environment.context = { ...environment.context, url: 'https://accounts.example/login' };
+    await expect(finish(controller.command({ channel: CHANNEL, type: 'resume' }))).rejects.toThrow(
+      'Go back to demo.example',
+    );
+  });
+
+  it('keeps a pause chosen in the panel when the icon is clicked', async () => {
+    const controller = new RecorderController();
+    await finish(controller.command({ channel: CHANNEL, type: 'start', tabId: 7, title: 'Pause' }));
+    await finish(controller.command({ channel: CHANNEL, type: 'pause' }));
+    const state = await finish(controller.accessGranted(7));
+    expect(state).toMatchObject({ status: 'paused', pausedFor: 'user' });
   });
 });

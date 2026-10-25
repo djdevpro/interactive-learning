@@ -21,7 +21,9 @@ export default defineBackground(() => {
       })
       .catch(() => {});
     void browser.sidePanel.open({ tabId: tab.id }).catch(() => {});
-    // An open panel reads the tab again: the click may have restored access to it.
+    // The click gives the tab back to the extension: a paused recording may continue, and an
+    // open panel reads the tab again.
+    void controller.accessGranted(tab.id).catch(() => {});
     void browser.runtime
       .sendMessage({ channel: CHANNEL, type: 'tab-access', tabId: tab.id })
       .catch(() => {});

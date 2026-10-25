@@ -14,7 +14,9 @@ import {
   CHANNEL,
   SESSION_KEY,
   idleState,
+  sameSite,
   sameView,
+  siteOf,
   type CaptureContext,
   type Command,
   type RecorderState,
@@ -23,6 +25,8 @@ import {
 const CAPTURE_INTERVAL_MS = 600;
 const NO_TAB_ACCESS =
   'Chrome did not allow access to this tab. Click the Interactive Learning icon while the tab is open, then try again.';
+const ACCESS_LOST =
+  'Chrome no longer lets the extension see this tab. Click the Interactive Learning icon in the toolbar to continue recording.';
 const MAX_SESSION_BYTES = 80 * 1024 * 1024;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -149,22 +153,54 @@ export class RecorderController {
           throw new Error('This guide is finished. Start a new guide.');
         return this.capture('manual', true);
       }
-      if (command.type === 'resume') {
-        const tab = await browser.tabs.get(state.tabId);
-        if (!tab.url || new URL(tab.url).origin !== state.origin) {
-          throw new Error('Go back to the original site to resume this guide.');
-        }
-        await this.inject(state.tabId);
-        state.status = 'recording';
-        await this.save(state);
-        return this.capture('resume');
-      }
+      if (command.type === 'resume') return this.resume(state);
       clearTimeout(this.pendingCapture);
       state.status = command.type === 'pause' ? 'paused' : 'stopped';
+      if (command.type === 'pause') state.pausedFor = 'user';
+      else delete state.pausedFor;
       await browser.tabs
         .sendMessage(state.tabId, { channel: CHANNEL, type: 'observe', active: false })
         .catch(() => {});
       return this.save(state);
+    });
+  }
+
+  /** Continues a paused recording once the tab shows the same site and Chrome gives access to it. */
+  private async resume(state: RecorderState): Promise<RecorderState> {
+    const tab = await browser.tabs.get(state.tabId!).catch(() => undefined);
+    if (!tab) throw new Error('The recorded tab is closed. Finish the guide to keep its steps.');
+    // Without access, Chrome hides the address of the tab: the page itself may be right.
+    if (!tab.url) throw new Error(ACCESS_LOST);
+    if (!sameSite(tab.url, state.origin!)) {
+      throw new Error(
+        `This tab shows another site. Go back to ${siteOf(state.origin!)} in it to resume.`,
+      );
+    }
+    await this.inject(state.tabId!).catch(() => {
+      throw new Error(ACCESS_LOST);
+    });
+    state.status = 'recording';
+    delete state.pausedFor;
+    await this.save(state);
+    return this.capture('resume');
+  }
+
+  /**
+   * A click on the toolbar icon gives the tab back to the extension. A recording that stopped
+   * because the tab changed site or lost access then continues by itself; a pause chosen in the
+   * panel stays a pause.
+   */
+  accessGranted(tabId: number): Promise<RecorderState> {
+    return this.serial(async () => {
+      const state = await this.state();
+      if (state.status !== 'paused' || state.tabId !== tabId) return state;
+      if (!state.pausedFor || state.pausedFor === 'user') return state;
+      try {
+        return await this.resume(state);
+      } catch (error) {
+        this.diagnostic(state, error instanceof Error ? error.message : ACCESS_LOST);
+        return this.save(state);
+      }
     });
   }
 
@@ -319,11 +355,14 @@ export class RecorderController {
     return this.serial(async () => {
       const state = await this.state();
       if (state.status !== 'recording' || tabId !== state.tabId) return;
-      if (!/^https?:\/\//.test(url) || new URL(url).origin !== state.origin) {
+      if (!/^https?:\/\//.test(url) || !sameSite(url, state.origin!)) {
+        clearTimeout(this.pendingCapture);
         state.status = 'paused';
+        state.pausedFor = 'site';
+        const site = siteOf(state.origin!);
         this.diagnostic(
           state,
-          'The walkthrough left the allowed site. Go back to the original site to resume, or start another guide.',
+          `The tab left ${site}. Go back to ${site}, then click the Interactive Learning icon in the toolbar to continue.`,
         );
         await this.save(state);
         return;
@@ -332,7 +371,11 @@ export class RecorderController {
         await this.inject(tabId);
         this.scheduleCapture('navigation');
       } catch {
-        this.diagnostic(state, NO_TAB_ACCESS);
+        // Chrome withdraws its access when the address changes origin, even on the same site.
+        clearTimeout(this.pendingCapture);
+        state.status = 'paused';
+        state.pausedFor = 'access';
+        this.diagnostic(state, ACCESS_LOST);
         await this.save(state);
       }
     });
@@ -359,8 +402,8 @@ export class RecorderController {
     if (active?.id !== state.tabId)
       throw new Error('The recorded tab must be active to be captured.');
     const before = await this.context(state.tabId!);
-    if (new URL(before.url).origin !== state.origin)
-      throw new Error('This page is outside the allowed site.');
+    if (!sameSite(before.url, state.origin!))
+      throw new Error(`This page is outside ${siteOf(state.origin!)}.`);
     state.lastCaptureAt = Date.now();
     const src = await browser.tabs.captureVisibleTab(state.windowId!, { format: 'png' });
     const after = await this.context(state.tabId!);
@@ -456,14 +499,18 @@ export class RecorderController {
       state.lastCapture = { stepId: step.id, context: after };
       state.stepCount = guide.steps.length;
     } catch (error) {
-      this.diagnostic(
-        state,
-        !(error instanceof Error)
-          ? 'The capture failed. Try again from the panel.'
-          : /permission/i.test(error.message)
-            ? NO_TAB_ACCESS
-            : error.message,
-      );
+      if (error instanceof Error && /permission|cannot access/i.test(error.message)) {
+        // Without access every next capture fails too: wait for a click on the toolbar icon.
+        clearTimeout(this.pendingCapture);
+        state.status = 'paused';
+        state.pausedFor = 'access';
+        this.diagnostic(state, ACCESS_LOST);
+      } else {
+        this.diagnostic(
+          state,
+          error instanceof Error ? error.message : 'The capture failed. Try again from the panel.',
+        );
+      }
     }
     return this.save(state);
   }
