@@ -17,9 +17,24 @@ npx -y @interactive-learning/recorder doctor
 
 If `doctor` fails, stop and report the error. Below, `il` stands for `npx -y @interactive-learning/recorder`.
 
-You also need a browser tool that can save a screenshot as a file. A screenshot that only appears in the conversation cannot be imported. If you cannot save files, stop and tell the user.
+## 2. Choose the browser
 
-## 2. Put the guide in the public folder of the site
+Use the first of these that you have. Each screenshot must reach you as a file, because `capture add` imports files. An image that only appears in the conversation cannot be imported.
+
+1. **The browser built into your harness.** Prefer it whenever your harness provides one, such as the browser of Claude Code or Claude in Chrome. Some harnesses save each screenshot and give you its path; import that file as is. Measure positions with its page or JavaScript tools.
+2. **Playwright, only when your harness has no browser**, or when its screenshots never reach you as files.
+   - If the project already depends on `playwright` or `@playwright/test`, use that copy. Run `npx playwright install chromium` if its browser is missing.
+   - Otherwise tell the user, since Playwright downloads a browser of about 150 MB. Then install it in a temporary folder outside the project, so the project and its `package.json` stay untouched.
+
+```sh
+mkdir -p /tmp/il-browser && cd /tmp/il-browser
+npm init -y && npm install playwright
+npx playwright install chromium
+```
+
+With Playwright, drive the flow from a short Node script kept outside the project. Keep a fixed viewport such as 1280 by 800. Before each action, take `page.screenshot({ path, fullPage: false })`, read the click target with `locator.boundingBox()` and the address with `page.url()`. This script only drives the browser: never write it as a test and never add it to the project.
+
+## 3. Put the guide in the public folder of the site
 
 The site serves the guide as static files. Find the folder it serves as is at its root, from the stack of the project.
 
@@ -35,7 +50,7 @@ il create --title "Register a trainee" --out public/guides/register-trainee/guid
 
 Every screenshot you import is copied into `public/guides/register-trainee/assets/`, and `guide.json` refers to it with a relative path. The paths are therefore right without any other setting. Never embed images in the JSON as base64.
 
-## 3. Add one step per screen
+## 4. Add one step per screen
 
 Save your raw screenshots in a temporary folder outside the public folder, because `capture add` copies them. Repeat for every step of the flow.
 
@@ -62,7 +77,7 @@ Follow these rules.
 - Keep titles short and start them with a verb. Put details in markers.
 - A step lasts 2500 ms. Use `--duration-ms 3000` to `3500` for dense screens.
 
-## 4. Validate and show the guide
+## 5. Validate and show the guide
 
 ```sh
 il validate --guide public/guides/register-trainee/guide.json
@@ -91,11 +106,21 @@ If the project does not use the player yet, check the guide without adding a dep
 
 Play the guide once. Check that each cursor points at the right element, that markers sit on the right spot and that no sensitive data is visible. Fix and recapture what is wrong, then report the guide path and anything you could not capture.
 
+## 6. Offer the studio
+
+End by offering to open the guide in the studio, where the user can place markers, rewrite texts and replace screenshots by hand. If they accept, start it in the background, because it keeps running until it is stopped.
+
+```sh
+il studio --guide public/guides/register-trainee/guide.json
+```
+
+It opens their browser and prints its address; give them that address too. Each save writes `guide.json` and its images in place, so read `guide.json` again before you change the guide afterwards.
+
 ## Update an existing guide
 
 - To replace a screenshot and keep its texts, run `il capture replace --guide public/guides/register-trainee/guide.json --step STEP_ID --image /tmp/captures/new.png`. It removes the cursor of that step. Check the markers, and to show the click again add `"cursor": { "x": 0.82, "y": 0.18, "action": "click" }` to the step in `guide.json`.
 - To change texts, edit `guide.json`, then run `il validate`.
-- When the user wants to refine the guide by hand, tell them to run `npx -y @interactive-learning/recorder studio --guide public/guides/register-trainee/guide.json`. It opens the guide in their browser and saves it in place, and it keeps running until they stop it, so do not run it yourself unless they ask. Read `guide.json` again afterwards, since they may have changed it.
+- After an update, offer the studio again, as in section 6.
 - When the user wants to refine the guide in the browser extension, run `il export --guide public/guides/register-trainee/guide.json --out register-trainee.zip --zip` and tell them to import that ZIP from the extension panel.
 - To copy a guide somewhere else, `il export --guide <guide.json> --out <new folder>` writes `guide.json` and its `assets` folder.
 - `il --help` lists every command.
