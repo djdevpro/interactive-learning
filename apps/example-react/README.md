@@ -1,19 +1,17 @@
-# Exemple React
+# React example
 
-Application React autonome utilisant l’export public `@interactive-learning/player/react`. Aucun alias vers les sources du lecteur. Le guide partagé vient de `apps/example/public/example/guide.json` : captures et annotations du prototype HTML wireframe. Les captures métier locales ne sont pas servies.
+A standalone React 19 application that uses the `<interactive-learning>` Web Component from `@interactive-learning/player` directly, without any adapter or alias to the player sources. It plays the shared guide in `apps/example/public/example/guide.json`, made from screenshots of the wireframe prototype.
 
-Cet exemple importe le JSON, le valide avec `validateGuide`, puis transmet l’objet directement à la propriété `guide`. Les exemples Svelte et HTML chargent le même guide avec `src`. Le lecteur et les fonctionnalités restent identiques.
+This example imports the JSON, validates it with `validateGuide` and assigns the object to the `guide` property. The Svelte and HTML examples load the same guide with `src`.
 
-Depuis la racine du monorepo, après `pnpm install` :
+From the repository root, after `pnpm install`, run the following.
 
 ```sh
 pnpm build
 pnpm dev:react
 ```
 
-Ouvrir <http://127.0.0.1:4318/>. Lecture, pause, repères, informations et plein écran sont disponibles dans le lecteur. `src/App.tsx` montre l’intégration minimale.
-
-Pour parcourir le prototype à capturer, lancer séparément `pnpm dev:wireframe` et ouvrir <http://127.0.0.1:4321/>. `pnpm dev:all` lance les quatre lecteurs uniquement.
+Open <http://127.0.0.1:4318/>. `src/App.tsx` shows the minimal integration, `src/interactive-learning.d.ts` declares the tag for JSX type checking and `src/custom.css` restyles the player. Remove the import of `custom.css` in `src/main.tsx` to see the default look.
 
 ```sh
 pnpm --filter @interactive-learning/example-react typecheck

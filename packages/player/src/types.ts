@@ -1,4 +1,7 @@
 import type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
+import type { InteractiveLearningElement } from './InteractiveLearningElement';
+import type { PlayerMessages } from './messages';
+import type { GuideTheme } from './theme';
 
 export type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
 
@@ -10,39 +13,35 @@ export interface PlayerControls {
   seekToStep(index: number): void;
 }
 
-export interface InteractiveLearningElement extends HTMLElement, PlayerControls {
+export interface PlayerProperties {
+  /** Validated guide object. Takes precedence over `src`. Replace it to reload; never mutate it. */
   guide: GuideDocument | undefined;
+  /** URL of a guide JSON. Relative images resolve from its final URL. */
   src: string;
+  /** Prefix for relative image references; overrides the one derived from `src`. */
   assetBaseUrl: string;
+  /** Shows the guide and step titles and descriptions, hidden by default. */
   showInformation: boolean;
-  addEventListener<K extends keyof PlayerEventMap>(
-    type: K,
-    listener: (this: InteractiveLearningElement, event: PlayerEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  addEventListener<K extends keyof HTMLElementEventMap>(
-    type: K,
-    listener: (this: HTMLElement, event: HTMLElementEventMap[K]) => void,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
-  addEventListener(
-    type: string,
-    listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions,
-  ): void;
+  /** `light`, `dark` or `system` (default). The bulb button switches between light and dark. */
+  theme: GuideTheme;
+  /** Replaces any built-in text. The language follows the `lang` attribute, then English. */
+  messages: Partial<PlayerMessages> | undefined;
 }
 
 export interface PlayerEventMap {
   'step-change': CustomEvent<{ index: number; step: GuideStep }>;
-  'information-change': CustomEvent<{ visible: boolean }>;
+  'theme-change': CustomEvent<{ theme: GuideTheme }>;
   'guide-load': CustomEvent<{ guide: GuideDocument }>;
   'guide-error': CustomEvent<{ message: string }>;
 }
 
-export type InteractiveLearningConstructor = new () => InteractiveLearningElement;
+/**
+ * Framework-neutral description of `<interactive-learning>` for template type checking:
+ * JavaScript properties plus one `on<event>` listener per player event, the convention used by
+ * React 19 and Svelte 5 for custom elements. Merge it into the framework's element typings.
+ */
+export type InteractiveLearningProps = Partial<PlayerProperties> & {
+  [K in keyof PlayerEventMap as `on${K}`]?: (event: PlayerEventMap[K]) => void;
+};
 
-declare global {
-  interface HTMLElementTagNameMap {
-    'interactive-learning': InteractiveLearningElement;
-  }
-}
+export type InteractiveLearningConstructor = typeof InteractiveLearningElement;

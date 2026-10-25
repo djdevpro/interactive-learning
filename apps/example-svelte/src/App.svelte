@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { InteractiveGuide } from '@interactive-learning/player/svelte';
+  import '@interactive-learning/player/auto';
 </script>
 
-<InteractiveGuide src={`${import.meta.env.BASE_URL}guide.json`} />
+<interactive-learning src={`${import.meta.env.BASE_URL}guide.json`}></interactive-learning>

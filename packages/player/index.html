@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Interactive Learning player preview</title>
+    <link rel="stylesheet" href="/dev/preview.css" />
+  </head>
+  <body>
+    <main class="preview">
+      <section class="stage" aria-label="Player">
+        <interactive-learning src="./guide.json"></interactive-learning>
+      </section>
+
+      <aside class="panel" aria-label="Preview settings">
+        <h1>Player preview</h1>
+        <p class="hint">Edit <code>src/</code> and the page reloads with your change.</p>
+
+        <form id="settings">
+          <label>
+            Guide
+            <select name="src">
+              <option value="./guide.json">Example guide</option>
+              <option value="./missing.json">Missing file (error state)</option>
+              <option value="">No guide</option>
+            </select>
+          </label>
+          <label>
+            Theme
+            <select name="theme">
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
+          <label>
+            Language
+            <select name="lang">
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+            </select>
+          </label>
+          <label>
+            Page background
+            <select name="page">
+              <option value="light">Light page</option>
+              <option value="dark">Dark page</option>
+            </select>
+          </label>
+          <label class="inline">
+            <input type="checkbox" name="information" />
+            Show titles and descriptions
+          </label>
+          <label>
+            Accent color
+            <input type="color" name="accent" value="#2f3542" />
+          </label>
+          <label>
+            Corner radius <output name="radiusValue">0px</output>
+            <input type="range" name="radius" min="0" max="24" value="0" />
+          </label>
+        </form>
+
+        <h2>Events</h2>
+        <ol id="events" class="events"></ol>
+      </aside>
+    </main>
+    <script type="module" src="/dev/preview.ts"></script>
+  </body>
+</html>

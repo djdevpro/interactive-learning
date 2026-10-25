@@ -1,31 +1,31 @@
-# Recorder Interactive Learning
+# Interactive Learning recorder extension
 
-Extension Chrome Manifest V3 avec WXT, Vue et TypeScript. Le modèle officiel Vue WXT a servi de référence ; la commande d'amorçage a été interrompue faute d'accès réseau, puis la structure a été créée localement.
+A Chrome Manifest V3 extension built with WXT, Vue and TypeScript. It records a walkthrough while you click through a website and exports it as a guide.
 
-## Utilisation
+## Use it
 
-Depuis la racine : `pnpm --filter @interactive-learning/extension build`. Dans Chrome, ouvrez `chrome://extensions`, activez le mode développeur puis chargez le dossier `.output/chrome-mv3` de cette application. L'installation est manuelle : le package ne modifie pas votre navigateur système.
+From the repository root, run `pnpm --filter @interactive-learning/extension build`. In Chrome, open `chrome://extensions`, turn on developer mode and load the `.output/chrome-mv3` folder of this application. The recorder package also ships the built extension, and `npx -y @interactive-learning/recorder extension path` prints its folder. Installation is manual, and no package changes your browser by itself.
 
-1. Ouvrez le site à documenter puis cliquez sur l'extension.
-2. Nommez le guide et démarrez. Fermez le popup pour effectuer votre parcours.
-3. Les clics, champs stabilisés, défilements et navigations sur le même site produisent des captures.
-4. Pour conserver un formulaire rempli, ouvrez le popup et cliquez **Capturer cette étape** avant de valider.
-5. Terminez puis exportez le JSON. Il contient les images PNG ; le composant Vue `InteractiveGuide` le lit directement. Les textes et annotations peuvent être enrichis par programmation ou par le skill IA.
+1. Open the website to document, then click the extension.
+2. Name the guide and start. Close the popup to walk through the flow.
+3. Clicks, settled fields, scrolls and navigations on the same site produce screenshots.
+4. To keep a filled form, open the popup and click **Capture this step** before you submit.
+5. Finish, then export the JSON file. It contains the PNG images, and the player reads it directly. Code or the AI skill can then improve texts and markers.
 
-Les images et guides sont dans IndexedDB, l'état dans `chrome.storage.local`. Aucun serveur ni outil d'automatisation n'est nécessaire. Le service worker séquence les captures avec au moins 600 ms d'intervalle. Limites de ce prototype : 500 étapes et 80 Mo par guide, 12 Mo par image. Exportez le guide courant avant d'en démarrer un autre.
+Images and guides live in IndexedDB and the session state in `chrome.storage.local`. No server or automation tool is involved. The service worker spaces screenshots at least 600 ms apart. This prototype accepts 500 steps and 80 MB per guide, and 12 MB per image. Export the current guide before you start another one.
 
-## Garanties et limites
+## Guarantees and limits
 
-- L'observateur ne bloque ni ne rejoue les clics ou les soumissions. Il ne collecte pas les valeurs des champs séparément des images visibles.
-- Une capture déclenchée par un clic ou une soumission est asynchrone : elle peut montrer le résultat de l'action. La capture préalable de chaque formulaire n'est pas garantie.
-- Le pointeur d'un clic est ajouté uniquement à une capture précédente compatible : même document, URL, révision DOM, viewport, scroll et DPR. Sinon il est omis avec diagnostic. Une capture pendant laquelle ce contexte change est écartée.
-- Le site enregistré doit rester l'onglet actif. Une navigation vers une autre origine met en pause. L'extension utilise `activeTab`, `scripting`, `storage` et `webNavigation`, sans permission d'accès permanente à tous les sites.
-- Les cadres intégrés ne sont pas instrumentés ; leurs pixels visibles peuvent apparaître mais leurs actions ne créent pas d'étape. Une animation DOM continue peut faire rejeter une capture comme instable.
-- Les images visibles peuvent contenir des données personnelles. Utilisez des données de démonstration ou masquez-les avant capture. L'export retire la query string et le fragment de l'URL source.
-- Les navigations SPA sont observées via `webNavigation`. Les changements sans URL peuvent être capturés après un clic ou manuellement.
+- The observer never blocks or replays clicks and submissions. It does not collect field values apart from what the visible images show.
+- A screenshot triggered by a click or a submission is asynchronous, so it may show the result of the action. Capturing every form before it is sent is not guaranteed.
+- A click pointer is added only to a previous screenshot taken in the same document, URL, DOM revision, viewport, scroll and pixel ratio. Otherwise it is left out with a diagnostic. A screenshot during which this context changes is discarded.
+- The recorded site must stay the active tab. Navigating to another origin pauses the recording. The extension uses `activeTab`, `scripting`, `storage` and `webNavigation`, without permanent access to every site.
+- Embedded frames are not observed. Their visible pixels can appear, but actions inside them create no step. A continuous DOM animation can make a screenshot rejected as unstable.
+- Screenshots can contain personal data. Use demo data or hide it before capturing. The export removes the query string and fragment from the source URL.
+- Single page application navigations are observed through `webNavigation`. Changes without a URL change can be captured after a click or by hand.
 
-## API interne
+## Internal messages
 
-Les messages utilisent le canal `interactive-learning/recorder` : `state`, `start` avec `title`, `pause`, `resume`, `capture`, `stop`. Les observations du content script passent par `observation`. Les commandes de contrôle sont réservées aux pages de l'extension ; les observations sont limitées à l'onglet de la session et au frame principal. La réponse est `{ ok: true, state }` ou `{ ok: false, error }`.
+Messages use the `interactive-learning/recorder` channel with `state`, `start` with a `title`, `pause`, `resume`, `capture` and `stop`. Observations from the content script use `observation`. Control commands are reserved for extension pages, and observations are limited to the session tab and its main frame. The reply is `{ ok: true, state }` or `{ ok: false, error }`.
 
-Le fichier exporté respecte `GuideDocument` du package interne `@interactive-learning/protocol`, schéma `1.0.0`.
+The exported file follows the `GuideDocument` type of the internal `@interactive-learning/protocol` package, schema `1.0.0`.

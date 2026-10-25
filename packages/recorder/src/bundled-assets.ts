@@ -1,4 +1,5 @@
 import { access, cp, lstat, mkdir, mkdtemp, rename, rm } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isNodeError, RecorderError } from './errors.js';
@@ -6,6 +7,16 @@ import { isNodeError, RecorderError } from './errors.js';
 export function bundledAssetPath(kind: 'skill' | 'extension'): string {
   const base = dirname(fileURLToPath(import.meta.url));
   return kind === 'skill' ? resolve(base, 'skill') : resolve(base, 'extension', 'chrome-mv3');
+}
+
+/** User-level skill folder read by each supported agent. */
+export function agentSkillPath(agent: string, home = homedir()): string {
+  const folders: Record<string, string> = { claude: '.claude', codex: '.agents' };
+  const folder = folders[agent];
+  if (!folder) {
+    throw new RecorderError('INVALID_ARGUMENT', 'Option --agent accepts claude or codex.');
+  }
+  return resolve(home, folder, 'skills', 'interactive-learning');
 }
 
 export async function assetAvailable(path: string): Promise<boolean> {
@@ -20,14 +31,14 @@ export async function assetAvailable(path: string): Promise<boolean> {
 export async function installSkill(sourceDirectory: string, outDirectory: string): Promise<string> {
   const destination = resolve(outDirectory);
   if (!(await assetAvailable(resolve(sourceDirectory, 'SKILL.md')))) {
-    throw new RecorderError('SKILL_NOT_FOUND', 'Le skill n’est pas présent dans la distribution.');
+    throw new RecorderError('SKILL_NOT_FOUND', 'The skill is missing from this distribution.');
   }
   const assertAbsent = async () => {
     try {
       await lstat(destination);
       throw new RecorderError(
         'DESTINATION_EXISTS',
-        'Le dossier de destination existe déjà. Aucun fichier ne sera remplacé.',
+        'The destination folder already exists. No file was replaced.',
       );
     } catch (error) {
       if (!isNodeError(error, 'ENOENT')) throw error;

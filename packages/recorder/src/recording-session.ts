@@ -51,7 +51,7 @@ export function assertNormalizedPoint(x: number, y: number): void {
   if (![x, y].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) {
     throw new RecorderError(
       'INVALID_COORDINATES',
-      'Les coordonnées x et y doivent être des nombres entre 0 et 1.',
+      'The x and y coordinates must be numbers between 0 and 1.',
     );
   }
 }
@@ -65,7 +65,7 @@ export class RecordingSession {
 
   static async create(options: CreateGuideOptions): Promise<RecordingSession> {
     if (!options.title.trim())
-      throw new RecorderError('INVALID_TITLE', 'Le titre du guide est obligatoire.');
+      throw new RecorderError('INVALID_TITLE', 'The guide title is required.');
     const session = new RecordingSession(options.filePath);
     await withGuideLock(session.guidePath, async () => {
       const document = createGuide(options.title.trim(), options.description ?? '');
@@ -87,7 +87,7 @@ export class RecordingSession {
     if (!Number.isFinite(durationMs) || durationMs < 400 || durationMs > 120_000) {
       throw new RecorderError(
         'INVALID_DURATION',
-        'La durée doit être comprise entre 400 et 120000 millisecondes.',
+        'The duration must be between 400 and 120000 milliseconds.',
       );
     }
     // Read and validate before creating any output or modifying the manifest.
@@ -95,7 +95,7 @@ export class RecordingSession {
     return withGuideLock(this.guidePath, async () => {
       const { document, raw } = await readGuide(this.guidePath);
       const asset = await this.storeImage(document, image);
-      const title = options.title?.trim() || `Étape ${document.steps.length + 1}`;
+      const title = options.title?.trim() || `Step ${document.steps.length + 1}`;
       const step: GuideStep = {
         id: `step_${randomUUID()}`,
         title,
@@ -129,7 +129,7 @@ export class RecordingSession {
       const { document, raw } = await readGuide(this.guidePath);
       const step = document.steps.find((candidate) => candidate.id === stepId);
       if (!step)
-        throw new RecorderError('STEP_NOT_FOUND', 'Cette étape n’existe pas dans le guide.');
+        throw new RecorderError('STEP_NOT_FOUND', 'This step does not exist in the guide.');
       const asset = await this.storeImage(document, image);
       step.assetId = asset.id;
       delete step.cursor;
@@ -161,10 +161,7 @@ export class RecordingSession {
     } catch (error) {
       if (!isNodeError(error, 'EEXIST')) throw error;
       if (!(await readFile(imagePath)).equals(image.bytes)) {
-        throw new RecorderError(
-          'ASSET_CONFLICT',
-          'Un fichier image existant possède un contenu inattendu.',
-        );
+        throw new RecorderError('ASSET_CONFLICT', 'An existing image file has unexpected content.');
       }
     }
     let asset = document.assets.find((candidate) => candidate.src === src);
@@ -189,12 +186,12 @@ export class RecordingSession {
   ): Promise<GuideStep['annotations'][number]> {
     assertNormalizedPoint(options.x, options.y);
     if (!options.title.trim())
-      throw new RecorderError('INVALID_TITLE', 'Le titre de l’annotation est obligatoire.');
+      throw new RecorderError('INVALID_TITLE', 'The annotation title is required.');
     return withGuideLock(this.guidePath, async () => {
       const { document, raw } = await readGuide(this.guidePath);
       const step = document.steps.find((item) => item.id === stepId);
       if (!step)
-        throw new RecorderError('STEP_NOT_FOUND', 'Cette étape n’existe pas dans le guide.');
+        throw new RecorderError('STEP_NOT_FOUND', 'This step does not exist in the guide.');
       const annotation: GuideStep['annotations'][number] = {
         id: `annotation_${randomUUID()}`,
         x: options.x,

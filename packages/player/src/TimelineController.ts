@@ -34,13 +34,13 @@ export class TimelineController {
 
     for (const step of steps) {
       if (!Number.isFinite(step.durationMs) || step.durationMs <= 0) {
-        throw new RangeError(`La durée de l'étape « ${step.id} » doit être positive.`);
+        throw new RangeError(`Step "${step.id}" must have a positive duration.`);
       }
       this.offsets.push(offset);
       this.durations.push(step.durationMs);
       offset += step.durationMs;
       if (!Number.isSafeInteger(Math.ceil(offset))) {
-        throw new RangeError('La durée totale du guide dépasse la limite supportée.');
+        throw new RangeError('The total guide duration exceeds the supported limit.');
       }
     }
 
@@ -80,7 +80,7 @@ export class TimelineController {
 
   seek(elapsedMs: number): TimelineSnapshot {
     if (!Number.isFinite(elapsedMs)) {
-      throw new RangeError('La position de lecture doit être un nombre fini.');
+      throw new RangeError('The playback position must be a finite number.');
     }
     this.elapsedMs = Math.min(this.totalMs, Math.max(0, elapsedMs));
     if (this.elapsedMs >= this.totalMs) this.playing = false;
@@ -89,7 +89,7 @@ export class TimelineController {
 
   advance(deltaMs: number): TimelineSnapshot {
     if (!Number.isFinite(deltaMs) || deltaMs < 0) {
-      throw new RangeError('Le temps écoulé doit être un nombre positif ou nul.');
+      throw new RangeError('The elapsed time must be zero or positive.');
     }
     if (!this.playing) return this.snapshot;
     return this.seek(this.elapsedMs + deltaMs);
@@ -97,7 +97,7 @@ export class TimelineController {
 
   goToStep(index: number): TimelineSnapshot {
     if (!Number.isInteger(index)) {
-      throw new RangeError("L'index d'étape doit être un entier.");
+      throw new RangeError('The step index must be an integer.');
     }
     if (this.stepCount === 0) return this.snapshot;
     const boundedIndex = Math.min(this.stepCount - 1, Math.max(0, index));

@@ -1,79 +1,90 @@
-# Interactive Learning Recorder
+# @interactive-learning/recorder
 
-Outil de création de guides à partir de captures fournies par une extension humaine, les outils natifs d’un agent ou un fichier local. Ce package n’automatise pas le navigateur et ne rejoue pas d’actions métier.
+Authoring tools for Interactive Learning guides. The recorder turns screenshots into a guide, whether they come from the companion browser extension, from an AI agent's own browser tools or from local files. It never drives a browser and never replays business actions.
 
-## Installation
+Install it as a development dependency. The guide it produces is played by [`@interactive-learning/player`](https://www.npmjs.com/package/@interactive-learning/player), which does not need this package.
+
+## Install
 
 ```sh
 pnpm add -D @interactive-learning/recorder
 pnpm exec interactive-learning doctor
 ```
 
-Node.js 22.18 ou supérieur est requis. `doctor` indique également si l’extension et le skill sont présents dans la distribution.
+Node.js 22.18 or later is required. `doctor` also reports whether the bundled extension and AI skill are present.
 
-## Extension humaine et skill IA
+## AI skill
+
+Install the bundled skill for Claude Code or Codex in one line. No other installation is needed, because the skill runs this tool through npx.
+
+```sh
+npx -y @interactive-learning/recorder skill install --agent claude
+npx -y @interactive-learning/recorder skill install --agent codex
+```
+
+`--agent claude` writes to `~/.claude/skills/interactive-learning` and `--agent codex` to `~/.agents/skills/interactive-learning`. For a project skill shared through a repository, use `--out .claude/skills/interactive-learning` or `--out .agents/skills/interactive-learning` instead. The command never overwrites an existing folder, so delete it to update the skill. `skill path` prints the folder of the bundled skill.
+
+## Browser extension
+
+`extension path` prints the folder of the bundled Chrome and Edge extension. Load it as an unpacked extension for this first version.
 
 ```sh
 pnpm exec interactive-learning extension path
-pnpm exec interactive-learning skill path
-pnpm exec interactive-learning skill install --out .agents/skills/interactive-learning
 ```
 
-`extension path` renvoie le dossier de l’extension Chrome/Edge embarquée, à charger comme extension non empaquetée pendant cette première version. `skill path` renvoie le dossier du skill fourni. `skill install` le copie dans un dossier neuf choisi explicitement ; pour Claude Code, utilisez par exemple `.claude/skills/interactive-learning`. La commande refuse tout dossier déjà présent et ne modifie aucune installation globale.
-
-## Créer un guide
+## Create a guide
 
 ```sh
-pnpm exec interactive-learning create --title "Inscrire un apprenti" --out guides/inscription/guide.json
-pnpm exec interactive-learning capture add --guide guides/inscription/guide.json --image captures/inscription.png --title "Ouvrir les inscriptions" --description "Cliquez sur Ajouter." --x 0.72 --y 0.18
-pnpm exec interactive-learning annotate --guide guides/inscription/guide.json --step STEP_ID --x 0.72 --y 0.18 --title "Ajouter" --body "Ce bouton ouvre le formulaire."
-pnpm exec interactive-learning validate --guide guides/inscription/guide.json
+pnpm exec interactive-learning create --title "Register a trainee" --out guides/sign-up/guide.json
+pnpm exec interactive-learning capture add --guide guides/sign-up/guide.json --image captures/sign-up.png --title "Open sign-ups" --description "Click Add." --x 0.72 --y 0.18
+pnpm exec interactive-learning annotate --guide guides/sign-up/guide.json --step STEP_ID --x 0.72 --y 0.18 --title "Add" --body "This button opens the form."
+pnpm exec interactive-learning validate --guide guides/sign-up/guide.json
 ```
 
-Remplacez `STEP_ID` par le `stepId` renvoyé par `capture add`. Les coordonnées sont normalisées entre 0 et 1 dans le repère de l’image. `--x` et `--y` sont facultatifs pour une capture et doivent être fournis ensemble. La durée d’une étape vaut 2500 ms par défaut, comme dans l’extension ; `--duration-ms` accepte de 400 à 120000 ms.
+Replace `STEP_ID` with the `stepId` that `capture add` returns. Coordinates go from 0 to 1 within the image. `--x` and `--y` are optional for a capture and must come together. A step lasts 2500 ms by default, like in the extension, and `--duration-ms` accepts 400 to 120000 ms.
 
-Les commandes renvoient un objet JSON sur stdout. En cas d’échec, elles écrivent `{ "ok": false, "error": { "code": "...", "message": "..." } }` sur stderr et quittent avec le code 1.
+Every command prints a JSON object on stdout. On failure it writes `{ "ok": false, "error": { "code": "...", "message": "..." } }` on stderr and exits with code 1.
 
-## Actualiser une capture
+## Replace a screenshot
 
 ```sh
-pnpm exec interactive-learning capture replace --guide guides/inscription/guide.json --step STEP_ID --image captures/inscription-v2.png
+pnpm exec interactive-learning capture replace --guide guides/sign-up/guide.json --step STEP_ID --image captures/sign-up-v2.png
 ```
 
-Cette commande conserve l’identifiant, les textes, la durée et les annotations de l’étape. Elle retire le curseur et les anciennes métadonnées de capture. Le résultat JSON indique `annotationsRequireReview: true` si des annotations doivent être repositionnées ou vérifiées. Les images devenues inutilisées sortent du manifeste ; les fichiers source ne sont pas supprimés.
+The step keeps its identifier, texts, duration and annotations. The cursor and the previous capture metadata are removed. The JSON result reports `annotationsRequireReview: true` when annotations need to be checked or moved. Images that are no longer used leave the manifest, and the source files are never deleted.
 
 ## Export
 
 ```sh
-pnpm exec interactive-learning export --guide guides/inscription/guide.json --out public/guides/inscription
-pnpm exec interactive-learning export --guide guides/inscription/guide.json --out exports/inscription --embed
+pnpm exec interactive-learning export --guide guides/sign-up/guide.json --out public/guides/sign-up
+pnpm exec interactive-learning export --guide guides/sign-up/guide.json --out exports/sign-up --embed
 ```
 
-La destination d’un export doit être un dossier qui n’existe pas encore. Le premier mode produit `guide.json` et `assets/` ; `--embed` produit un JSON autonome avec les images intégrées. Le guide source reste inchangé.
+The export target must be a folder that does not exist yet. The first form writes `guide.json` and an `assets/` folder. With `--embed`, it writes a single JSON file with the images inside. The source guide stays unchanged.
 
-Le lecteur de production est fourni séparément par `@interactive-learning/vue`. Il n’a pas besoin de ce package.
-
-## API TypeScript
+## TypeScript API
 
 ```ts
 import { RecordingSession, GuideExporter } from '@interactive-learning/recorder';
 
 const session = await RecordingSession.create({
   filePath: 'guides/demo/guide.json',
-  title: 'Découvrir le tableau de bord',
+  title: 'Discover the dashboard',
 });
 const step = await session.addCapture({
   imagePath: 'captures/dashboard.png',
-  title: 'Créer un dossier',
+  title: 'Create a folder',
   cursor: { x: 0.8, y: 0.2, action: 'click' },
 });
-await session.addAnnotation(step.id, { x: 0.8, y: 0.2, title: 'Nouveau dossier' });
+await session.addAnnotation(step.id, { x: 0.8, y: 0.2, title: 'New folder' });
 await session.validate();
 await new GuideExporter(session.guidePath).export({ outDirectory: 'exports/demo' });
 ```
 
-Un guide existant s’ouvre avec `new RecordingSession('guides/demo/guide.json')`. Les images PNG, JPEG et WebP jusqu’à 12 Mio sont importées avec leurs dimensions lues dans le fichier, copiées sous un nom dérivé de leur contenu et référencées par un chemin relatif. Les modifications utilisent un verrou et une écriture atomique ; la création ne remplace aucun fichier existant. Les exports refusent les chemins d’assets qui sortent du dossier du guide.
+Open an existing guide with `new RecordingSession('guides/demo/guide.json')`. PNG, JPEG and WebP images up to 12 MiB are imported with the dimensions read from the file, copied under a name derived from their content and referenced by a relative path. Changes use a lock and an atomic write, and creating a guide never replaces an existing file. Exports refuse asset paths that leave the guide folder.
 
-## Développement
+The package also exports `validateGuide`, `createGuide`, `GuideValidationError`, `SCHEMA_VERSION` and the guide types.
 
-Le protocole interne est intégré au JavaScript et aux déclarations TypeScript du build. Le build du dépôt copie ensuite le skill dans `dist/skill` et l’extension dans `dist/extension/chrome-mv3` avant de créer l’archive npm.
+## License
+
+MIT

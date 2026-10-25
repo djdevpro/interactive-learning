@@ -23,30 +23,30 @@ function fail(path: string, message: string): never {
   throw new GuideValidationError(path, message);
 }
 function object(value: unknown, path: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) fail(path, 'objet attendu');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) fail(path, 'expected an object');
   return value as Record<string, unknown>;
 }
 function text(value: unknown, path: string, max = 10000): string {
-  if (typeof value !== 'string' || value.length > max) fail(path, 'texte invalide ou trop long');
+  if (typeof value !== 'string' || value.length > max) fail(path, 'invalid or too long text');
   return value;
 }
 function identifier(value: unknown, path: string): string {
   const result = text(value, path, 128);
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(result)) fail(path, 'identifiant invalide');
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(result)) fail(path, 'invalid identifier');
   return result;
 }
 function number(value: unknown, path: string, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max)
-    fail(path, `nombre attendu entre ${min} et ${max}`);
+    fail(path, `expected a number between ${min} and ${max}`);
   return value;
 }
 function date(value: unknown, path: string): string {
   const result = text(value, path, 64);
-  if (!Number.isFinite(Date.parse(result))) fail(path, 'date invalide');
+  if (!Number.isFinite(Date.parse(result))) fail(path, 'invalid date');
   return result;
 }
 function array(value: unknown, path: string, max = 500): unknown[] {
-  if (!Array.isArray(value) || value.length > max) fail(path, 'liste invalide ou trop longue');
+  if (!Array.isArray(value) || value.length > max) fail(path, 'invalid or too long list');
   return value;
 }
 function point(value: unknown, path: string): Point {
@@ -75,16 +75,17 @@ export function isSafeAssetSource(value: string): boolean {
 function asset(value: unknown, path: string): GuideAsset {
   const obj = object(value, path);
   const src = text(obj.src, path + '.src', Math.ceil(MAX_IMAGE_BYTES * 1.4) + 100);
-  if (!isSafeAssetSource(src)) fail(path + '.src', 'image intégrée ou chemin relatif sûr attendu');
+  if (!isSafeAssetSource(src))
+    fail(path + '.src', 'expected an embedded image or a safe relative path');
   const mimeType = text(obj.mimeType, path + '.mimeType');
   if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType))
-    fail(path + '.mimeType', 'format image non pris en charge');
+    fail(path + '.mimeType', 'unsupported image format');
   if (src.startsWith('data:') && !src.startsWith('data:' + mimeType + ';'))
-    fail(path + '.src', 'type MIME incohérent');
+    fail(path + '.src', 'MIME type does not match the image');
   const width = number(obj.width, path + '.width', 1, 32768);
   const height = number(obj.height, path + '.height', 1, 32768);
   if (!Number.isInteger(width) || !Number.isInteger(height))
-    fail(path, 'dimensions entières attendues');
+    fail(path, 'expected integer dimensions');
   return {
     id: identifier(obj.id, path + '.id'),
     src,
@@ -110,9 +111,9 @@ function context(value: unknown, path: string): CaptureContext {
     try {
       const url = new URL(result.url);
       if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password)
-        fail(path + '.url', 'URL non prise en charge');
+        fail(path + '.url', 'unsupported URL');
     } catch {
-      fail(path + '.url', 'URL invalide');
+      fail(path + '.url', 'invalid URL');
     }
   }
   if (obj.viewport !== undefined) {
@@ -151,7 +152,7 @@ function step(value: unknown, path: string): GuideStep {
       cursor.action !== undefined &&
       (typeof cursor.action !== 'string' || !['click', 'move'].includes(cursor.action))
     )
-      fail(path + '.cursor.action', 'action visuelle invalide');
+      fail(path + '.cursor.action', 'invalid cursor action');
     result.cursor = point(cursor, path + '.cursor');
     if (cursor.action !== undefined) result.cursor.action = cursor.action as 'click' | 'move';
     if (cursor.from !== undefined) result.cursor.from = point(cursor.from, path + '.cursor.from');
@@ -161,12 +162,12 @@ function step(value: unknown, path: string): GuideStep {
   return result;
 }
 function unique(items: { id: string }[], path: string): void {
-  if (new Set(items.map((i) => i.id)).size !== items.length) fail(path, 'identifiants dupliqués');
+  if (new Set(items.map((i) => i.id)).size !== items.length) fail(path, 'duplicate identifiers');
 }
 export function validateGuide(input: unknown): GuideDocument {
   const obj = object(input, 'guide');
   if (obj.schemaVersion !== SCHEMA_VERSION)
-    fail('guide.schemaVersion', `version non prise en charge (attendu ${SCHEMA_VERSION})`);
+    fail('guide.schemaVersion', `unsupported version (expected ${SCHEMA_VERSION})`);
   const result: GuideDocument = {
     schemaVersion: SCHEMA_VERSION,
     id: identifier(obj.id, 'guide.id'),
@@ -181,6 +182,7 @@ export function validateGuide(input: unknown): GuideDocument {
   unique(result.steps, 'guide.steps');
   const assetIds = new Set(result.assets.map((a) => a.id));
   for (const [index, s] of result.steps.entries())
-    if (!assetIds.has(s.assetId)) fail('guide.steps[' + index + '].assetId', 'capture introuvable');
+    if (!assetIds.has(s.assetId))
+      fail('guide.steps[' + index + '].assetId', 'screenshot not found');
   return result;
 }

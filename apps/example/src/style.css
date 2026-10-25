@@ -42,23 +42,6 @@ select {
   max-width: 55ch;
   overflow-wrap: anywhere;
 }
-.guide-retry {
-  min-height: 40px;
-  padding: 8px 14px;
-  border: 1px solid #d7dae0;
-  border-radius: 6px;
-  background: white;
-  color: #202328;
-  font: inherit;
-  cursor: pointer;
-}
-.guide-retry:hover {
-  background: #f4f5f7;
-}
-.guide-retry:focus-visible {
-  outline: 2px solid #343b48;
-  outline-offset: 3px;
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

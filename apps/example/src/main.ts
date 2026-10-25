@@ -1,5 +1,5 @@
 import { createApp } from 'vue';
 import App from './App.vue';
-import '@interactive-learning/vue/style.css';
 import './style.css';
+import './custom.css';
 createApp(App).mount('#app');

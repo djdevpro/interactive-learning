@@ -1,15 +1,15 @@
 import { defineConfig } from 'vite';
-import vue from '@vitejs/plugin-vue';
 import dts from 'unplugin-dts/vite';
 
+// `pnpm dev` serves index.html, a live preview of the element; `pnpm build` builds the library.
 export default defineConfig({
+  publicDir: '../../apps/example/public/example',
   plugins: [
-    vue(),
     dts({
       tsconfigPath: './tsconfig.json',
-      processor: 'vue',
       entryRoot: 'src',
-      include: ['src/**/*.ts', 'src/**/*.tsx', 'src/**/*.vue'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts'],
       bundleTypes: { bundledPackages: ['@interactive-learning/protocol'] },
       afterDiagnostic(diagnostics) {
         if (diagnostics.some((diagnostic) => diagnostic.category === 1)) {
@@ -18,21 +18,14 @@ export default defineConfig({
       },
     }),
   ],
-  define: {
-    'process.env.NODE_ENV': JSON.stringify('production'),
-    __VUE_OPTIONS_API__: false,
-    __VUE_PROD_DEVTOOLS__: false,
-    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
-  },
   build: {
     lib: {
-      entry: { index: 'src/index.ts', auto: 'src/auto.ts', react: 'src/react.tsx' },
+      entry: { index: 'src/index.ts', auto: 'src/auto.ts' },
       formats: ['es'],
     },
-    rolldownOptions: {
-      external: ['react', 'react/jsx-runtime'],
-      output: { banner: (chunk) => (chunk.name === 'react' ? '"use client";' : '') },
-    },
+    // Lit stays a dependency, so pages share one copy and servers load its Node build.
+    rolldownOptions: { external: [/^lit($|\/)/, /^@lit\//] },
+    copyPublicDir: false,
     sourcemap: true,
   },
 });

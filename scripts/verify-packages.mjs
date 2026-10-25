@@ -136,13 +136,15 @@ function checkArchive(files, expectedName, expectedVersion) {
       `Source/test file accidentally shipped: ${name}`,
     );
   }
-  if (expectedName.endsWith('/vue')) {
-    assert(member('dist/style.css').data.length > 0, 'Reader CSS is empty.');
-    assert.equal(metadata.exports['./style.css'], './dist/style.css');
+  if (expectedName.endsWith('/player')) {
+    const manifest = JSON.parse(member(metadata.customElements).data.toString());
     assert(
-      metadata.sideEffects?.some((entry) => entry.includes('.css')),
-      'Reader CSS must be preserved by bundlers.',
+      manifest.modules.some((module) =>
+        module.declarations?.some((declaration) => declaration.tagName === 'interactive-learning'),
+      ),
+      'The custom elements manifest does not describe <interactive-learning>.',
     );
+    assert(metadata.dependencies?.lit, 'The player must depend on lit.');
   } else {
     const cli = member(metadata.bin['interactive-learning']);
     assert(cli.data.toString().startsWith('#!/usr/bin/env node\n'), 'CLI shebang is missing.');
@@ -168,12 +170,12 @@ function checkArchive(files, expectedName, expectedVersion) {
 }
 
 const smokeTypeScript = `
-import { InteractiveGuide, TimelineController, validateGuide as validateReaderGuide, type GuideDocument as ReaderGuide } from '@interactive-learning/vue';
+import { InteractiveLearningElement, TimelineController, validateGuide as validateReaderGuide, type GuideDocument as ReaderGuide } from '@interactive-learning/player';
 import { RecordingSession, GuideExporter, validateGuide, createGuide, SCHEMA_VERSION, type GuideDocument as RecorderGuide } from '@interactive-learning/recorder';
 const compatible = (guide: RecorderGuide): ReaderGuide => guide;
 const created: ReaderGuide = validateReaderGuide(compatible(validateGuide(createGuide('Guide'))));
 const schema: '1.0.0' = SCHEMA_VERSION;
-const component: typeof InteractiveGuide = InteractiveGuide;
+const component: typeof InteractiveLearningElement = InteractiveLearningElement;
 const timeline = new TimelineController([{ id: 'one', durationMs: 1000 }]);
 const session = new RecordingSession('guide.json');
 const exporter = new GuideExporter(session.guidePath);
@@ -192,9 +194,9 @@ import { execFileSync } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { InteractiveGuide, TimelineController, validateGuide as validateReaderGuide, SCHEMA_VERSION as READER_SCHEMA } from '@interactive-learning/vue';
+import { InteractiveLearningElement, TimelineController, validateGuide as validateReaderGuide, SCHEMA_VERSION as READER_SCHEMA } from '@interactive-learning/player';
 import { RecordingSession, GuideExporter, validateGuide, createGuide, SCHEMA_VERSION } from '@interactive-learning/recorder';
-assert(InteractiveGuide);
+assert(InteractiveLearningElement);
 assert.equal(validateGuide(createGuide('Public helper')).schemaVersion, SCHEMA_VERSION);
 assert.equal(READER_SCHEMA, SCHEMA_VERSION);
 assert.equal(validateReaderGuide(createGuide('Reader-compatible guide')).title, 'Reader-compatible guide');
@@ -230,7 +232,7 @@ console.log('Installed runtime, capture workflow, CLI, extension and skill: OK')
 await mkdir(outputDirectory, { recursive: true });
 await rm(resolve(outputDirectory, 'verification.json'), { force: true });
 const packages = [];
-for (const folder of ['vue', 'recorder']) {
+for (const folder of ['player', 'recorder']) {
   const directory = resolve(root, 'packages', folder);
   const metadata = JSON.parse(await readFile(resolve(directory, 'package.json'), 'utf8'));
   console.log(`Packing ${metadata.name}@${metadata.version}…`);
@@ -258,9 +260,6 @@ try {
   const dependencies = Object.fromEntries(
     packages.map((entry) => [entry.name, `file:${entry.archivePath.replaceAll('\\', '/')}`]),
   );
-  dependencies.vue = packages.find((entry) =>
-    entry.name.endsWith('/vue'),
-  ).metadata.devDependencies.vue;
   await writeFile(
     resolve(consumer, 'package.json'),
     JSON.stringify(
@@ -343,7 +342,7 @@ const report = {
   checks: [
     'tarball-content',
     'standalone-types',
-    'reader-css',
+    'custom-elements-manifest',
     'executable-cli',
     'extension',
     'skill',

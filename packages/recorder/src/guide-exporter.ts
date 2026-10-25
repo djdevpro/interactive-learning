@@ -32,14 +32,14 @@ export class GuideExporter {
 
   async export(options: ExportGuideOptions): Promise<ExportGuideResult> {
     if (!options.outDirectory.trim())
-      throw new RecorderError('INVALID_EXPORT_PATH', 'Le dossier de sortie est obligatoire.');
+      throw new RecorderError('INVALID_EXPORT_PATH', 'The output folder is required.');
     const directory = resolve(options.outDirectory);
     await rejectSymlink(directory);
     try {
       await lstat(directory);
       throw new RecorderError(
         'EXPORT_EXISTS',
-        'Le dossier de sortie existe déjà. Choisissez un nouveau dossier.',
+        'The output folder already exists. Choose a new folder.',
       );
     } catch (error) {
       if (!isNodeError(error, 'ENOENT')) throw error;
@@ -76,7 +76,7 @@ export class GuideExporter {
         await lstat(directory);
         throw new RecorderError(
           'EXPORT_EXISTS',
-          'Le dossier de sortie a été créé pendant cette opération.',
+          'The output folder was created during this operation.',
         );
       } catch (error) {
         if (!isNodeError(error, 'ENOENT')) throw error;

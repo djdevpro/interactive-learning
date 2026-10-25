@@ -9,8 +9,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@interactive-learning/vue": "workspace:*",
-    "@interactive-learning/protocol": "workspace:*",
+    "@interactive-learning/player": "workspace:*",
     "vue": "3.5.44"
   },
   "devDependencies": {

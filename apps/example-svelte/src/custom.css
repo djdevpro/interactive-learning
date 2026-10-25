@@ -1,0 +1,19 @@
+/*
+ * Optional theme for the Interactive Learning player.
+ * By default the player is plain: square corners, a neutral accent and the page font.
+ * Every property is optional. Remove the import of this file to see the default look.
+ * The properties also reach <interactive-learning>, through its Shadow DOM.
+ */
+:root {
+  --il-radius: 12px;
+  --il-accent: #2563eb;
+  --il-font: system-ui, sans-serif;
+
+  /* Other properties you can set:
+  --il-ink: #1d2026;
+  --il-muted: #646a74;
+  --il-paper: #fff;
+  --il-surface: #f2f3f5;
+  --il-focus: #2563eb;
+  */
+}

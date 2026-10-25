@@ -7,7 +7,7 @@ export function createGuide(title: string, description = ''): GuideDocument {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: crypto.randomUUID(),
-    title: title.trim() || 'Mon guide interactif',
+    title: title.trim() || 'Interactive guide',
     description,
     createdAt: now,
     updatedAt: now,

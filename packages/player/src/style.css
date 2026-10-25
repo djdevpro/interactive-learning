@@ -1,27 +1,43 @@
+/*
+ * Theme. Set any --il-* property on the player or one of its ancestors, including the
+ * <interactive-learning> element. The default look is deliberately plain: square corners and the
+ * page font. Text and surfaces follow the theme mode; the accent stays the same because markers
+ * and the cursor sit on the screenshot.
+ */
 .il-guide {
-  --il-ink: #202328;
-  --il-muted: #727780;
-  --il-accent: #343b48;
-  --il-paper: #fff;
-  --il-surface: #f4f5f7;
-  --il-outline: #e9eaed;
+  --_ink: var(--il-ink, light-dark(#1d2026, #eceef1));
+  --_muted: var(--il-muted, light-dark(#646a74, #a4aab4));
+  --_accent: var(--il-accent, #2f3542);
+  --_accent-strong: color-mix(in srgb, var(--_accent) 78%, black);
+  --_paper: var(--il-paper, light-dark(#fff, #1b1e23));
+  --_surface: var(--il-surface, light-dark(#f2f3f5, #262a30));
+  --_focus: var(--il-focus, light-dark(var(--_accent), #fff));
+  --_radius: var(--il-radius, 0px);
+  /* Control bar. A white veil with dark controls in the light theme, the reverse in the dark theme. */
+  --_bar-ink: light-dark(#1d2026, #fff);
+  --_bar-ink-soft: light-dark(rgb(29 32 38 / 72%), rgb(255 255 255 / 75%));
+  --_bar-ink-faint: light-dark(rgb(29 32 38 / 22%), rgb(255 255 255 / 30%));
+  --_bar-hover: light-dark(rgb(29 32 38 / 8%), rgb(255 255 255 / 12%));
+  --_bar-veil-start: light-dark(rgb(255 255 255 / 0%), rgb(10 14 22 / 0%));
+  --_bar-veil-middle: light-dark(rgb(255 255 255 / 78%), rgb(10 14 22 / 60%));
+  --_bar-veil-end: light-dark(rgb(255 255 255 / 94%), rgb(10 14 22 / 80%));
   width: 100%;
   isolation: isolate;
   container: il-player / inline-size;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--il-ink);
-  font-family:
-    Inter,
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  border-radius: var(--_radius);
+  background: var(--_paper);
+  color: var(--_ink);
+  font-family: var(--il-font, inherit);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+.il-guide--light {
+  color-scheme: light;
+}
+.il-guide--dark {
+  color-scheme: dark;
 }
 .il-guide *,
 .il-guide *::before,
@@ -42,7 +58,7 @@
     box-shadow 140ms ease,
     transform 140ms ease;
 }
-.il-guide button:active:not(:disabled) {
+.il-guide button:active:not(:disabled, .il-guide__annotation) {
   transform: scale(0.96);
 }
 .il-guide button:disabled {
@@ -51,7 +67,7 @@
 }
 .il-guide :focus-visible,
 .il-guide:focus-visible {
-  outline: 2px solid var(--il-accent);
+  outline: 2px solid var(--_focus);
   outline-offset: 3px;
 }
 .il-guide__heading {
@@ -74,13 +90,13 @@
 }
 .il-guide__description {
   margin: 4px 0 0;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 12px;
   text-wrap: pretty;
 }
 .il-guide__count {
   flex-shrink: 0;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -90,8 +106,8 @@
 .il-guide__canvas {
   position: relative;
   width: 100%;
-  border-radius: 6px;
-  background: var(--il-surface);
+  border-radius: var(--_radius);
+  background: var(--_surface);
 }
 .il-guide__image {
   display: block;
@@ -99,7 +115,7 @@
   height: 100%;
   border-radius: inherit;
   object-fit: contain;
-  outline: 1px solid rgb(0 0 0 / 10%);
+  outline: 1px solid light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 10%));
   outline-offset: -1px;
   user-select: none;
 }
@@ -112,19 +128,19 @@
   justify-content: center;
   gap: 10px;
   padding: 16px;
-  color: var(--il-muted);
+  color: var(--_muted);
   text-align: center;
   font-size: 12px;
 }
 .il-guide__retry {
   min-height: 40px;
   padding: 8px 14px;
-  border-radius: 6px;
+  border-radius: var(--_radius);
   color: white;
-  background: var(--il-accent);
+  background: var(--_accent);
 }
 .il-guide__retry:hover {
-  background: var(--il-ink);
+  background: var(--_accent-strong);
 }
 .il-guide__cover {
   display: flex;
@@ -147,49 +163,51 @@
   place-items: center;
   border-radius: 50%;
   color: white;
-  background: #252b36;
+  background: var(--_accent);
   box-shadow:
     0 2px 4px #00000014,
     0 6px 20px #00000020,
     0 0 0 1px #ffffff40;
 }
 .il-guide__start:hover {
-  background: #10151e;
+  background: var(--_accent-strong);
   box-shadow:
     0 4px 24px #00000030,
     0 0 0 4px #ffffff40;
 }
 .il-guide__cover-meta {
-  padding: 4px 9px;
-  border-radius: 5px;
-  color: var(--il-ink);
-  background: #ffffffed;
-  box-shadow: 0 1px 4px #0000000d;
-  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--_radius);
+  color: var(--_ink);
+  background: color-mix(in srgb, var(--_paper) 94%, transparent);
+  box-shadow: 0 1px 4px #0000001a;
+  font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+/* The arrow stops below a marker it would cover (--il-cursor-offset) and passes over markers while it moves. */
 .il-guide__cursor {
   position: absolute;
-  z-index: 2;
+  z-index: 8;
   pointer-events: none;
   color: #202632;
-  transform: translate(-2.2px, -1.875px);
+  transform: translate(-2.2px, calc(var(--il-cursor-offset, 0px) - 1.875px));
   filter: drop-shadow(0 1px 2px #00000040);
 }
 .il-guide__cursor > svg {
   display: block;
   position: relative;
 }
+/* The click ripple stays on the clicked point, around the marker. */
 .il-guide__click-pulse {
   position: absolute;
-  top: 1.875px;
+  top: calc(1.875px - var(--il-cursor-offset, 0px));
   left: 2.2px;
   width: 24px;
   height: 24px;
-  border: 1.5px solid var(--il-accent);
+  border: 1.5px solid var(--_accent);
   border-radius: 50%;
-  background: #343b4814;
+  background: color-mix(in srgb, var(--_accent) 8%, transparent);
 }
 .il-guide__anchors {
   position: absolute;
@@ -200,7 +218,7 @@
   pointer-events: none;
 }
 .il-guide__anchors line {
-  stroke: var(--il-accent);
+  stroke: var(--_accent);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
@@ -224,40 +242,75 @@
   place-items: center;
   border: 1.5px solid white;
   border-radius: 50%;
-  background: var(--il-accent);
+  background: var(--_accent);
   box-shadow: 0 1px 5px #00000030;
   font-size: 11px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
   transition:
     box-shadow 140ms ease,
-    background-color 140ms ease;
+    background-color 140ms ease,
+    transform 140ms ease;
+  /* `backwards` leaves the press scale to the transition once the entrance is over. */
+  animation: il-marker-in 280ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  animation-delay: calc(var(--il-marker-index, 0) * 70ms);
 }
 .il-guide__annotation:hover > span,
 .il-guide__annotation--active > span {
-  background: var(--il-ink);
+  background: var(--_accent-strong);
   box-shadow:
-    0 0 0 3px #343b4826,
+    0 0 0 4px color-mix(in srgb, var(--_accent) 22%, transparent),
     0 1px 5px #00000025;
 }
-.il-guide .il-guide__annotation:active {
-  transform: translate(-50%, -50%) scale(0.96);
+@keyframes il-marker-in {
+  from {
+    opacity: 0;
+    transform: scale(0.25);
+    filter: blur(4px);
+  }
 }
+/* Keep the positioned hit target still for the entire pointer gesture. */
+.il-guide__annotation:active > span {
+  transform: scale(0.96);
+}
+/*
+ * Like the controls, a tooltip sits on a veil of the theme color and takes the inverse colors:
+ * a dark card over a white veil in the light theme, a light card over a dark veil in the dark one.
+ */
 .il-guide__tooltip {
+  --_tip-paper: var(--_ink);
+  --_tip-ink: var(--_paper);
+  --_tip-muted: color-mix(in srgb, var(--_paper) 72%, transparent);
+  --_focus: var(--_tip-ink);
   position: absolute;
   z-index: 6;
   width: min(280px, calc(100% - 24px));
   padding: 12px;
   overflow: auto;
   overscroll-behavior: contain;
-  border-radius: 8px;
-  color: var(--il-ink);
-  background: var(--il-paper);
+  border-radius: var(--_radius);
+  color: var(--_tip-ink);
+  background: var(--_tip-paper);
   box-shadow:
-    0 2px 8px #00000014,
-    0 8px 24px #0000001a,
-    0 0 0 1px #0000000d;
+    0 2px 8px #0000001f,
+    0 12px 32px #00000033;
   overflow-wrap: anywhere;
+}
+/* The veil fades the screenshot, so its text never mixes with the tooltip. */
+.il-guide__canvas::before {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-radius: inherit;
+  background: light-dark(rgb(255 255 255 / 72%), rgb(10 14 22 / 55%));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+  content: '';
+}
+.il-guide__canvas:has(> .il-guide__tooltip)::before {
+  opacity: 1;
 }
 .il-guide__tooltip > strong {
   display: block;
@@ -276,45 +329,78 @@
   height: 40px;
   padding: 0;
   place-items: center;
-  border-radius: 6px;
-  color: var(--il-muted);
+  border-radius: max(0px, calc(var(--_radius) - 4px));
+  color: var(--_tip-muted);
   background: transparent;
 }
 .il-guide__tooltip-close:hover {
-  color: var(--il-ink);
-  background: var(--il-surface);
+  color: var(--_tip-ink);
+  background: color-mix(in srgb, var(--_tip-ink) 12%, transparent);
 }
 .il-guide__tooltip > p {
   margin: 5px 0 0;
-  color: #606670;
+  color: var(--_tip-muted);
   font-size: 12px;
   line-height: 1.5;
+  text-wrap: pretty;
 }
 .il-guide__tooltip-hint {
   display: block;
   margin-top: 8px;
-  color: var(--il-muted);
-  font-size: 10px;
+  color: var(--_tip-muted);
+  font-size: 11px;
 }
 .il-guide__player {
   position: absolute;
   z-index: 5;
   inset: auto 0 0;
   padding: 4px 8px;
-  border-radius: 0 0 6px 6px;
-  color: white;
+  border-radius: 0 0 var(--_radius) var(--_radius);
+  color: var(--_bar-ink);
   pointer-events: none;
+  transition:
+    opacity 240ms ease,
+    transform 240ms ease;
 }
 .il-guide__player::before {
   position: absolute;
   z-index: -1;
-  inset: -20px 0 0;
+  inset: -16px 0 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, #0a0e1600, #0a0e16b8 45%, #0a0e16e0);
+  background: linear-gradient(
+    180deg,
+    var(--_bar-veil-start),
+    var(--_bar-veil-middle) 50%,
+    var(--_bar-veil-end)
+  );
   content: '';
 }
+/* A thin progress line replaces the hidden controls. */
+.il-guide__canvas::after {
+  position: absolute;
+  z-index: 5;
+  inset: auto 0 0;
+  height: 3px;
+  border-radius: 0 0 var(--_radius) var(--_radius);
+  background: linear-gradient(
+    to right,
+    var(--_accent) var(--il-progress, 0%),
+    rgb(0 0 0 / 14%) var(--il-progress, 0%)
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+  content: '';
+}
+.il-guide--controls-hidden .il-guide__player:not(:has(:focus-visible)) {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.il-guide--controls-hidden .il-guide__canvas:not(:has(.il-guide__player :focus-visible))::after {
+  opacity: 1;
+}
 .il-guide__player :focus-visible {
-  outline-color: white;
+  outline-color: var(--_bar-ink);
   outline-offset: 0;
 }
 .il-guide__controls {
@@ -342,20 +428,20 @@
   height: 40px;
   padding: 0;
   place-items: center;
-  border-radius: 6px;
-  color: #ffffffd9;
+  border-radius: var(--_radius);
+  color: var(--_bar-ink-soft);
   background: transparent;
 }
 .il-guide__control:hover:not(:disabled) {
-  color: white;
-  background: #ffffff1f;
+  color: var(--_bar-ink);
+  background: var(--_bar-hover);
 }
 .il-guide__control--primary {
-  color: white;
+  color: var(--_bar-ink);
 }
 .il-guide__control[aria-pressed='true'] {
-  color: white;
-  background: #ffffff1f;
+  color: var(--_bar-ink);
+  background: var(--_bar-hover);
 }
 .il-guide .il-guide__speed {
   font-size: 11px;
@@ -380,61 +466,71 @@
   background: transparent;
   box-shadow: none;
   cursor: pointer;
-  accent-color: white;
+  accent-color: var(--_bar-ink);
+  --_track: 3px;
+  --_thumb: 10px;
+}
+/* A thicker track under the pointer or keyboard focus shows that it can be dragged. */
+.il-guide__timeline:hover,
+.il-guide__timeline:focus-visible {
+  --_track: 5px;
+  --_thumb: 14px;
 }
 .il-guide__timeline::-webkit-slider-runnable-track {
-  height: 2px;
+  height: var(--_track);
   border-radius: 99px;
   background: linear-gradient(
     to right,
-    white var(--il-progress, 0%),
-    #ffffff4d var(--il-progress, 0%)
+    var(--_bar-ink) var(--il-progress, 0%),
+    var(--_bar-ink-faint) var(--il-progress, 0%)
   );
 }
 .il-guide__timeline::-moz-range-track {
-  height: 2px;
+  height: var(--_track);
   border-radius: 99px;
   background: linear-gradient(
     to right,
-    white var(--il-progress, 0%),
-    #ffffff4d var(--il-progress, 0%)
+    var(--_bar-ink) var(--il-progress, 0%),
+    var(--_bar-ink-faint) var(--il-progress, 0%)
   );
 }
 .il-guide__timeline::-webkit-slider-thumb {
-  width: 8px;
-  height: 8px;
-  margin-top: -3px;
+  width: var(--_thumb);
+  height: var(--_thumb);
+  margin-top: calc((var(--_track) - var(--_thumb)) / 2);
   appearance: none;
   border: 0;
   border-radius: 50%;
-  background: white;
+  background: var(--_bar-ink);
+  box-shadow: 0 1px 3px #00000040;
 }
 .il-guide__timeline::-moz-range-thumb {
-  width: 8px;
-  height: 8px;
+  width: var(--_thumb);
+  height: var(--_thumb);
   border: 0;
   border-radius: 50%;
-  background: white;
+  background: var(--_bar-ink);
+  box-shadow: 0 1px 3px #00000040;
 }
 .il-guide__time {
   display: inline-flex;
   flex-shrink: 0;
   gap: 5px;
   padding: 0 4px;
-  color: #ffffffb3;
-  font-size: 10px;
+  color: var(--_bar-ink-soft);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .il-guide__time > span:first-child {
-  color: white;
+  color: var(--_bar-ink);
 }
 .il-guide__time-separator {
-  color: #ffffff80;
+  color: var(--_bar-ink-soft);
 }
 .il-guide__fullscreen-error {
   margin: 8px 18px;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 12px;
 }
 .il-guide__step {
@@ -459,14 +555,14 @@
 }
 .il-guide__step-number {
   flex-shrink: 0;
-  color: var(--il-muted);
-  font-size: 10px;
+  color: var(--_muted);
+  font-size: 11px;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 .il-guide__step-copy > p {
   margin: 4px 0 0;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 12px;
   line-height: 1.6;
   white-space: pre-line;
@@ -479,13 +575,13 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--il-muted);
-  font-size: 10px;
+  color: var(--_muted);
+  font-size: 11px;
   white-space: nowrap;
 }
 .il-guide__details {
   margin: 0 18px 8px;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 12px;
 }
 .il-guide__details > summary {
@@ -497,8 +593,8 @@
 }
 .il-guide__details > summary > span {
   margin-left: 5px;
-  color: var(--il-muted);
-  font-size: 10px;
+  color: var(--_muted);
+  font-size: 11px;
 }
 .il-guide__details > ol {
   display: grid;
@@ -507,11 +603,11 @@
   padding: 0 0 10px 20px;
 }
 .il-guide__details li::marker {
-  color: var(--il-accent);
+  color: var(--_accent);
   font-weight: 600;
 }
 .il-guide__details li > strong {
-  color: var(--il-ink);
+  color: var(--_ink);
   font-weight: 500;
 }
 .il-guide__details li > p {
@@ -527,7 +623,7 @@
   text-align: center;
 }
 .il-guide__empty-symbol {
-  color: var(--il-muted);
+  color: var(--_muted);
   margin-bottom: 12px;
 }
 .il-guide__empty > h3 {
@@ -538,7 +634,7 @@
 .il-guide__empty > p {
   max-width: 34ch;
   margin: 0;
-  color: var(--il-muted);
+  color: var(--_muted);
   font-size: 12px;
 }
 .il-guide__sr-only {
@@ -606,7 +702,7 @@
     gap: 8px;
   }
   .il-guide__cover-meta {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 @container il-player (max-width: 360px) {
@@ -624,10 +720,10 @@
   padding: 0;
   overflow: hidden;
   border-radius: 0;
-  background: var(--il-paper);
+  background: var(--_paper);
 }
 .il-guide:fullscreen::backdrop {
-  background: var(--il-paper);
+  background: var(--_paper);
 }
 .il-guide:fullscreen .il-guide__heading {
   flex: 0 0 auto;
@@ -656,24 +752,38 @@
   padding: 10px 18px;
 }
 .il-guide--reduced-motion button,
-.il-guide--reduced-motion .il-guide__annotation > span {
+.il-guide--reduced-motion .il-guide__annotation > span,
+.il-guide--reduced-motion .il-guide__player,
+.il-guide--reduced-motion .il-guide__canvas::after,
+.il-guide--reduced-motion .il-guide__canvas::before {
   transition: none;
+  animation: none;
 }
-.il-guide--reduced-motion button:active:not(:disabled) {
+.il-guide--reduced-motion.il-guide--controls-hidden .il-guide__player {
   transform: none;
 }
-.il-guide--reduced-motion .il-guide__annotation:active {
-  transform: translate(-50%, -50%);
+.il-guide--reduced-motion button:active:not(:disabled, .il-guide__annotation) {
+  transform: none;
+}
+.il-guide--reduced-motion .il-guide__annotation:active > span {
+  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .il-guide button,
-  .il-guide__annotation > span {
+  .il-guide__annotation > span,
+  .il-guide__player,
+  .il-guide__canvas::after,
+  .il-guide__canvas::before {
     transition: none;
+    animation: none;
   }
-  .il-guide button:active:not(:disabled) {
+  .il-guide--controls-hidden .il-guide__player {
     transform: none;
   }
-  .il-guide .il-guide__annotation:active {
-    transform: translate(-50%, -50%);
+  .il-guide button:active:not(:disabled, .il-guide__annotation) {
+    transform: none;
+  }
+  .il-guide .il-guide__annotation:active > span {
+    transform: none;
   }
 }

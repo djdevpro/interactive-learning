@@ -5,7 +5,12 @@ import packageMetadata from '../package.json' with { type: 'json' };
 import { GuideExporter } from './guide-exporter.js';
 import { RecorderError } from './errors.js';
 import { RecordingSession } from './recording-session.js';
-import { assetAvailable, bundledAssetPath, installSkill } from './bundled-assets.js';
+import {
+  agentSkillPath,
+  assetAvailable,
+  bundledAssetPath,
+  installSkill,
+} from './bundled-assets.js';
 
 export interface CliOutput {
   stdout: (line: string) => void;
@@ -20,8 +25,7 @@ const defaultOutput: CliOutput = {
 const help = {
   name: 'interactive-learning',
   version: packageMetadata.version,
-  description:
-    'Créer et enrichir des guides avec des captures importées. Aucun navigateur n’est piloté par ce CLI.',
+  description: 'Create and edit guides from imported screenshots. This CLI never drives a browser.',
   commands: [
     'create --title <title> --out <guide.json> [--description <text>]',
     'capture add --guide <guide.json> --image <image> [--title <title>] [--description <text>] [--x <0..1> --y <0..1>] [--duration-ms <400..120000>]',
@@ -31,6 +35,7 @@ const help = {
     'export --guide <guide.json> --out <new-directory> [--embed]',
     'extension path',
     'skill path',
+    'skill install --agent <claude|codex>',
     'skill install --out <new-directory>',
     'doctor',
   ],
@@ -51,14 +56,14 @@ function options(args: string[], strings: string[], booleans: string[] = []): Cl
     }).values;
     const values: CliValues = {};
     for (const [name, value] of Object.entries(parsed)) {
-      if (Array.isArray(value)) throw new Error(`L’option --${name} ne peut avoir qu’une valeur.`);
+      if (Array.isArray(value)) throw new Error(`Option --${name} accepts a single value.`);
       values[name] = value;
     }
     return values;
   } catch (error) {
     throw new RecorderError(
       'INVALID_ARGUMENT',
-      error instanceof Error ? error.message : 'Arguments invalides.',
+      error instanceof Error ? error.message : 'Invalid arguments.',
     );
   }
 }
@@ -66,7 +71,7 @@ function options(args: string[], strings: string[], booleans: string[] = []): Cl
 function required(values: CliValues, key: string): string {
   const value = values[key];
   if (typeof value !== 'string' || !value.trim()) {
-    throw new RecorderError('MISSING_ARGUMENT', `L’option --${key} est obligatoire.`);
+    throw new RecorderError('MISSING_ARGUMENT', `Option --${key} is required.`);
   }
   return value;
 }
@@ -79,7 +84,7 @@ function numeric(values: CliValues, key: string): number {
   const text = required(values, key);
   const number = Number(text);
   if (!Number.isFinite(number))
-    throw new RecorderError('INVALID_ARGUMENT', `L’option --${key} doit être un nombre fini.`);
+    throw new RecorderError('INVALID_ARGUMENT', `Option --${key} must be a finite number.`);
   return number;
 }
 
@@ -123,16 +128,13 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
             cursorCleared: true,
             annotationsRequireReview: result.annotationsRequireReview,
             message: result.annotationsRequireReview
-              ? 'Vérifiez les coordonnées des annotations sur la nouvelle capture.'
-              : 'Capture remplacée.',
+              ? 'Check the annotation positions on the new screenshot.'
+              : 'Screenshot replaced.',
           });
           return 0;
         }
         if (args[0] !== 'add')
-          throw new RecorderError(
-            'UNKNOWN_COMMAND',
-            'Sous-commandes attendues : capture add ou capture replace.',
-          );
+          throw new RecorderError('UNKNOWN_COMMAND', 'Use capture add or capture replace.');
         const values = options(args.slice(1), [
           'guide',
           'image',
@@ -145,7 +147,7 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
         const hasX = values.x !== undefined;
         const hasY = values.y !== undefined;
         if (hasX !== hasY)
-          throw new RecorderError('INVALID_COORDINATES', 'Fournissez --x et --y ensemble.');
+          throw new RecorderError('INVALID_COORDINATES', 'Provide --x and --y together.');
         const session = new RecordingSession(required(values, 'guide'));
         const step = await session.addCapture({
           imagePath: required(values, 'image'),
@@ -237,7 +239,7 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
             browserAutomation: false,
           },
           browser:
-            'Les captures proviennent de l’extension humaine ou des outils natifs de votre agent.',
+            "Screenshots come from the companion extension or from your agent's own browser tools.",
         });
         return nodeSupported ? 0 : 1;
       }
@@ -252,27 +254,34 @@ export async function runCli(argv: string[], output: CliOutput = defaultOutput):
           return available ? 0 : 1;
         }
         if (command === 'skill' && args[0] === 'install') {
-          const values = options(args.slice(1), ['out']);
-          const path = await installSkill(bundledAssetPath('skill'), required(values, 'out'));
+          const values = options(args.slice(1), ['out', 'agent']);
+          const agent = optional(values, 'agent');
+          if (agent && values.out !== undefined) {
+            throw new RecorderError('INVALID_ARGUMENT', 'Use either --agent or --out.');
+          }
+          const path = await installSkill(
+            bundledAssetPath('skill'),
+            agent ? agentSkillPath(agent) : required(values, 'out'),
+          );
           print({ ok: true, command: 'skill.install', path });
           return 0;
         }
         throw new RecorderError(
           'UNKNOWN_COMMAND',
           command === 'skill'
-            ? 'Sous-commandes attendues : skill path ou skill install --out <dossier neuf>.'
-            : 'Sous-commande attendue : extension path.',
+            ? 'Use skill path, skill install --agent <claude|codex> or skill install --out <new-directory>.'
+            : 'Use extension path.',
         );
       }
       default:
         throw new RecorderError(
           'UNKNOWN_COMMAND',
-          `Commande inconnue : ${command}. Utilisez --help.`,
+          `Unknown command "${command}". Run --help to list the commands.`,
         );
     }
   } catch (error) {
     const code = error instanceof RecorderError ? error.code : 'RECORDER_ERROR';
-    const message = error instanceof Error ? error.message : 'Une erreur inconnue est survenue.';
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
     output.stderr(JSON.stringify({ ok: false, error: { code, message } }));
     return 1;
   }

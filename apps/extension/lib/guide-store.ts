@@ -30,7 +30,8 @@ export class GuideStore {
       transaction.objectStore('guides').put(guide);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error('Écriture interrompue.'));
+      transaction.onabort = () =>
+        reject(transaction.error ?? new Error('The write was interrupted.'));
     });
   }
 

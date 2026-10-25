@@ -18,7 +18,7 @@ export function inspectImage(bytes: Buffer): ImageData {
   if (bytes.byteLength === 0 || bytes.byteLength > MAX_IMAGE_BYTES) {
     throw new RecorderError(
       'INVALID_IMAGE_SIZE',
-      'La taille de l’image doit être comprise entre 1 octet et 12 Mio.',
+      'The image size must be between 1 byte and 12 MiB.',
     );
   }
   let mimeType: ImageData['mimeType'];
@@ -36,16 +36,13 @@ export function inspectImage(bytes: Buffer): ImageData {
     mimeType = 'image/webp';
     extension = 'webp';
   } else {
-    throw new RecorderError(
-      'UNSUPPORTED_IMAGE',
-      'Seules les images PNG, JPEG et WebP sont acceptées.',
-    );
+    throw new RecorderError('UNSUPPORTED_IMAGE', 'Only PNG, JPEG and WebP images are accepted.');
   }
   let dimensions;
   try {
     dimensions = imageSize(bytes);
   } catch (error) {
-    throw new RecorderError('INVALID_IMAGE', 'Impossible de lire les dimensions de l’image.', {
+    throw new RecorderError('INVALID_IMAGE', 'The image dimensions cannot be read.', {
       cause: error,
     });
   }
@@ -58,7 +55,7 @@ export function inspectImage(bytes: Buffer): ImageData {
     width > 32768 ||
     height > 32768
   ) {
-    throw new RecorderError('INVALID_IMAGE', 'L’image ne possède pas de dimensions valides.');
+    throw new RecorderError('INVALID_IMAGE', 'The image has no valid dimensions.');
   }
   return {
     bytes,
@@ -74,13 +71,13 @@ export async function readImage(path: string): Promise<ImageData> {
   try {
     const info = await stat(path);
     if (!info.isFile())
-      throw new RecorderError('INVALID_IMAGE', 'Le chemin de l’image doit désigner un fichier.');
+      throw new RecorderError('INVALID_IMAGE', 'The image path must point to a file.');
     if (info.size > MAX_IMAGE_BYTES)
-      throw new RecorderError('INVALID_IMAGE_SIZE', 'L’image dépasse la limite de 12 Mio.');
+      throw new RecorderError('INVALID_IMAGE_SIZE', 'The image exceeds the 12 MiB limit.');
     return inspectImage(await readFile(path));
   } catch (error) {
     if (isNodeError(error, 'ENOENT'))
-      throw new RecorderError('IMAGE_NOT_FOUND', 'Le fichier image est introuvable.');
+      throw new RecorderError('IMAGE_NOT_FOUND', 'The image file was not found.');
     throw error;
   }
 }
@@ -90,14 +87,14 @@ export function readDataImage(src: string): ImageData {
   if (!match)
     throw new RecorderError(
       'INVALID_IMAGE',
-      'L’image intégrée doit être une data URI PNG, JPEG ou WebP en base64.',
+      'An embedded image must be a base64 PNG, JPEG or WebP data URI.',
     );
   if (match[2].length > Math.ceil(MAX_IMAGE_BYTES / 3) * 4) {
-    throw new RecorderError('INVALID_IMAGE_SIZE', 'L’image intégrée dépasse la limite de 12 Mio.');
+    throw new RecorderError('INVALID_IMAGE_SIZE', 'The embedded image exceeds the 12 MiB limit.');
   }
   const image = inspectImage(Buffer.from(match[2], 'base64'));
   if (image.mimeType !== match[1])
-    throw new RecorderError('INVALID_IMAGE', 'Le type déclaré ne correspond pas à l’image.');
+    throw new RecorderError('INVALID_IMAGE', 'The declared type does not match the image.');
   return image;
 }
 
@@ -109,7 +106,7 @@ export function assertAssetMetadata(asset: GuideAsset, image: ImageData): void {
   ) {
     throw new RecorderError(
       'ASSET_METADATA_MISMATCH',
-      'Les dimensions ou le type d’une image ne correspondent pas au manifeste.',
+      'The dimensions or type of an image do not match the manifest.',
     );
   }
 }

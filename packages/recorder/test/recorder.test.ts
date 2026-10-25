@@ -5,7 +5,7 @@ import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { RecordingSession } from '../src/recording-session.js';
 import { GuideExporter } from '../src/guide-exporter.js';
 import { runCli } from '../src/cli-command.js';
-import { installSkill } from '../src/bundled-assets.js';
+import { agentSkillPath, installSkill } from '../src/bundled-assets.js';
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aR1UAAAAASUVORK5CYII=',
@@ -139,7 +139,7 @@ describe('RecordingSession', () => {
     const step = await session.addCapture({
       imagePath,
       title: 'Ajouter',
-      description: 'Texte à garder',
+      description: 'Text to keep',
       durationMs: 5000,
       cursor: { x: 0.7, y: 0.3 },
       source: { capturedAt: new Date().toISOString(), viewport: { width: 1200, height: 800 } },
@@ -159,7 +159,7 @@ describe('RecordingSession', () => {
       step: {
         id: step.id,
         title: 'Ajouter',
-        description: 'Texte à garder',
+        description: 'Text to keep',
         durationMs: 5000,
         annotations: [annotation],
       },
@@ -243,6 +243,17 @@ describe('CLI and bundled assets', () => {
       code: 'DESTINATION_EXISTS',
     });
     expect(await readFile(resolve(destination, 'SKILL.md'), 'utf8')).toBe('# Customized');
+  });
+
+  it('resolves the user skill folder of Claude Code and Codex', () => {
+    const home = resolve(directory, 'home');
+    expect(agentSkillPath('claude', home)).toBe(
+      resolve(home, '.claude', 'skills', 'interactive-learning'),
+    );
+    expect(agentSkillPath('codex', home)).toBe(
+      resolve(home, '.agents', 'skills', 'interactive-learning'),
+    );
+    expect(() => agentSkillPath('other', home)).toThrow(/claude or codex/);
   });
 
   it('provides a machine-readable creation, capture and validation workflow', async () => {

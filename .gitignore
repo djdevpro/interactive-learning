@@ -1,22 +1,25 @@
+# Dependencies and package archives
 node_modules/
+*.tgz
+
+# Build output and tool caches
 dist/
 .output/
 .wxt/
-.svelte-kit/
-.pnpm-store/
-*.tgz
-coverage/
-.playwright/
-artifacts/
 .artifacts/
-.learning/
+coverage/
+*.tsbuildinfo
+
+# Local environment
 .env*
 !.env.example
+.claude/settings.local.json
 
-# Local business captures are never part of the public SDK repository.
+# Logs and system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Private training material read and written by scripts/build-courses.mjs. Never published.
 examples/tu-commences-demain/
 apps/example/public/courses/
-examples/captures/
-apps/example/src/TrainingDemo.vue
-apps/example/src/demo.css
-scripts/build-example.mjs

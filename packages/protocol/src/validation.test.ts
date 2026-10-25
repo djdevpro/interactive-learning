@@ -33,16 +33,16 @@ describe('guide contract', () => {
   it('rejects dangling references and duplicate steps', () => {
     const guide = fixture();
     guide.steps[0]!.assetId = 'missing';
-    expect(() => validateGuide(guide)).toThrow(/capture introuvable/);
+    expect(() => validateGuide(guide)).toThrow(/screenshot not found/);
     const duplicate = fixture();
     duplicate.steps.push({ ...duplicate.steps[0]! });
-    expect(() => validateGuide(duplicate)).toThrow(/dupliqu/);
+    expect(() => validateGuide(duplicate)).toThrow(/duplicate/);
   });
   it('requires finite normalized cursor and annotation coordinates', () => {
     for (const x of [-0.1, 1.1, NaN, Infinity]) {
       const guide = fixture();
       guide.steps[0]!.cursor!.x = x;
-      expect(() => validateGuide(guide)).toThrow(/nombre/);
+      expect(() => validateGuide(guide)).toThrow(/number/);
     }
   });
   it('rejects cursor actions that only become valid after string coercion', () => {

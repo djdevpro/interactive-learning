@@ -18,7 +18,7 @@ import { isNodeError, RecorderError } from './errors.js';
 
 export function resolveGuidePath(input: string): string {
   if (!input || extname(input).toLowerCase() !== '.json') {
-    throw new RecorderError('INVALID_GUIDE_PATH', 'Le guide doit être un fichier .json.');
+    throw new RecorderError('INVALID_GUIDE_PATH', 'The guide must be a .json file.');
   }
   return resolve(input);
 }
@@ -26,10 +26,7 @@ export function resolveGuidePath(input: string): string {
 export async function rejectSymlink(path: string): Promise<void> {
   try {
     if ((await lstat(path)).isSymbolicLink()) {
-      throw new RecorderError(
-        'UNSAFE_PATH',
-        'Un lien symbolique ne peut pas être utilisé comme destination.',
-      );
+      throw new RecorderError('UNSAFE_PATH', 'A symbolic link cannot be used as a destination.');
     }
   } catch (error) {
     if (!isNodeError(error, 'ENOENT')) throw error;
@@ -43,7 +40,7 @@ export async function readGuide(path: string): Promise<{ document: GuideDocument
     raw = await readFile(path, 'utf8');
   } catch (error) {
     if (isNodeError(error, 'ENOENT')) {
-      throw new RecorderError('GUIDE_NOT_FOUND', 'Le fichier du guide est introuvable.', {
+      throw new RecorderError('GUIDE_NOT_FOUND', 'The guide file was not found.', {
         cause: error,
       });
     }
@@ -52,7 +49,7 @@ export async function readGuide(path: string): Promise<{ document: GuideDocument
   try {
     return { document: validateGuide(JSON.parse(raw)), raw };
   } catch (error) {
-    throw new RecorderError('INVALID_GUIDE', 'Le fichier ne contient pas un guide valide.', {
+    throw new RecorderError('INVALID_GUIDE', 'The file does not contain a valid guide.', {
       cause: error,
     });
   }
@@ -69,7 +66,7 @@ export async function withGuideLock<T>(path: string, action: () => Promise<T>): 
     if (isNodeError(error, 'EEXIST')) {
       throw new RecorderError(
         'GUIDE_BUSY',
-        'Une autre opération utilise ce guide. Réessayez après sa fin.',
+        'Another operation is using this guide. Try again once it ends.',
       );
     }
     throw error;
@@ -117,7 +114,7 @@ export async function writeGuideAtomically(
         if (isNodeError(error, 'EEXIST')) {
           throw new RecorderError(
             'GUIDE_EXISTS',
-            'La destination existe déjà ; elle ne sera pas remplacée.',
+            'The destination already exists and will not be replaced.',
           );
         }
         throw error;
@@ -127,7 +124,7 @@ export async function writeGuideAtomically(
       if (current !== expectedRaw) {
         throw new RecorderError(
           'GUIDE_CHANGED',
-          'Le guide a été modifié pendant cette opération. Relancez la commande.',
+          'The guide changed during this operation. Run the command again.',
         );
       }
       await rename(tempPath, path);
@@ -146,10 +143,7 @@ export async function resolveAssetPath(guidePath: string, src: string): Promise<
     /^[a-z][a-z\d+.-]*:/i.test(src) ||
     src.split('/').some((part) => part === '..')
   ) {
-    throw new RecorderError(
-      'UNSAFE_ASSET_PATH',
-      'Les images doivent rester dans le dossier du guide.',
-    );
+    throw new RecorderError('UNSAFE_ASSET_PATH', 'Images must stay inside the guide folder.');
   }
   const root = await realpath(dirname(guidePath));
   let target: string;
@@ -157,14 +151,14 @@ export async function resolveAssetPath(guidePath: string, src: string): Promise<
     target = await realpath(resolve(root, src));
   } catch (error) {
     if (isNodeError(error, 'ENOENT'))
-      throw new RecorderError('ASSET_NOT_FOUND', 'Une image du guide est introuvable.');
+      throw new RecorderError('ASSET_NOT_FOUND', 'An image of the guide was not found.');
     throw error;
   }
   const fromRoot = relative(root, target);
   if (fromRoot === '..' || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
-    throw new RecorderError('UNSAFE_ASSET_PATH', 'Une image pointe hors du dossier du guide.');
+    throw new RecorderError('UNSAFE_ASSET_PATH', 'An image points outside the guide folder.');
   }
   if (!(await lstat(target)).isFile())
-    throw new RecorderError('INVALID_ASSET', 'Une image doit être un fichier.');
+    throw new RecorderError('INVALID_ASSET', 'An image must be a file.');
   return target;
 }

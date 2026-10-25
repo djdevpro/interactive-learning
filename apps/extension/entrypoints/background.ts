@@ -11,7 +11,7 @@ export default defineBackground(() => {
       message.type === 'observation'
         ? controller.observe(message, sender.tab?.id, sender.frameId)
         : sender.tab
-          ? Promise.reject(new Error('Commande réservée au popup.'))
+          ? Promise.reject(new Error('This command is reserved for the popup.'))
           : controller.command(message);
     void task.then(
       (state) => sendResponse({ ok: true, state } satisfies Reply),

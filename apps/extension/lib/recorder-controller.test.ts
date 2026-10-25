@@ -32,7 +32,7 @@ vi.mock('wxt/browser', () => ({
       sendMessage: vi.fn(async () => structuredClone(environment.context)),
       captureVisibleTab: vi.fn(async () => {
         environment.captures.push(Date.now());
-        if (environment.failCapture) throw new Error('Capture refusée');
+        if (environment.failCapture) throw new Error('Capture denied');
         return `data:image/png;base64,${btoa(String(++environment.imageNumber))}`;
       }),
     },
@@ -91,9 +91,7 @@ afterEach(() => {
 describe('recorder capture boundaries', () => {
   it('attaches a click only to the previous compatible screen', async () => {
     const controller = new RecorderController();
-    await finish(
-      controller.command({ channel: CHANNEL, type: 'start', title: 'Créer un dossier' }),
-    );
+    await finish(controller.command({ channel: CHANNEL, type: 'start', title: 'Create a folder' }));
     await finish(
       controller.observe(
         {
@@ -134,7 +132,7 @@ describe('recorder capture boundaries', () => {
     );
     expect(currentGuide().steps.every((step) => !step.cursor)).toBe(true);
     expect((environment.stored[SESSION_KEY] as RecorderState).diagnostics[0]?.message).toContain(
-      'omis',
+      'left out',
     );
   });
 
@@ -149,7 +147,7 @@ describe('recorder capture boundaries', () => {
 
   it('keeps captures at least 600 ms apart, including a new session', async () => {
     const controller = new RecorderController();
-    await finish(controller.command({ channel: CHANNEL, type: 'start', title: 'Premier guide' }));
+    await finish(controller.command({ channel: CHANNEL, type: 'start', title: 'First guide' }));
     await finish(controller.command({ channel: CHANNEL, type: 'capture' }));
     await finish(controller.command({ channel: CHANNEL, type: 'start', title: 'Second guide' }));
     expect(environment.captures).toHaveLength(3);
@@ -174,7 +172,7 @@ describe('recorder capture boundaries', () => {
     environment.failCapture = true;
     const state = await finish(controller.command({ channel: CHANNEL, type: 'capture' }));
     expect(state.stepCount).toBe(1);
-    expect(state.diagnostics[0]?.message).toBe('Capture refusée');
+    expect(state.diagnostics[0]?.message).toBe('Capture denied');
     expect(currentGuide().assets).toHaveLength(1);
   });
 });
