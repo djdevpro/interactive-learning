@@ -13,7 +13,29 @@ There is no visual editor. Guides come from a browser extension, from an AI agen
 | [`@interactive-learning/player`](packages/player)     | Play a guide anywhere with the `<interactive-learning>` tag |
 | [`@interactive-learning/recorder`](packages/recorder) | Create guides from the command line, TypeScript or an AI    |
 
-The packages are not published on npm yet. Until they are, build the repository and install the archives that `pnpm release:pack` produces.
+## Install
+
+Add the player to the application that shows the guides.
+
+```sh
+npm install @interactive-learning/player
+```
+
+```sh
+pnpm add @interactive-learning/player
+```
+
+The recorder only serves to create guides, so add it as a development dependency. The AI skill and the commands below can also run it through `npx` without installing it.
+
+```sh
+npm install --save-dev @interactive-learning/recorder
+```
+
+```sh
+pnpm add -D @interactive-learning/recorder
+```
+
+These commands work once the packages are published on npm. Until then, build this repository and install the archives that `pnpm release:pack` produces.
 
 ## Play a guide
 

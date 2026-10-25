@@ -7,6 +7,11 @@ Install it as a development dependency. The guide it produces is played by [`@in
 ## Install
 
 ```sh
+npm install --save-dev @interactive-learning/recorder
+npx interactive-learning doctor
+```
+
+```sh
 pnpm add -D @interactive-learning/recorder
 pnpm exec interactive-learning doctor
 ```

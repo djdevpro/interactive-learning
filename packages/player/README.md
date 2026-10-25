@@ -7,6 +7,10 @@ It is a standard Web Component written with [Lit](https://lit.dev), so it works 
 ## Install
 
 ```sh
+npm install @interactive-learning/player
+```
+
+```sh
 pnpm add @interactive-learning/player
 ```
 
