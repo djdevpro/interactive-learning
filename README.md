@@ -49,7 +49,7 @@ pnpm add @interactive-learning/player
 
 Screenshots load from the folder of `guide.json`. The [player README](packages/player/README.md) covers frameworks, themes, languages and styling.
 
-The packages are not on npm yet. Until they are, build this repository and install the archives of `pnpm release:pack`.
+Both packages are on npm: [`@interactive-learning/player`](https://www.npmjs.com/package/@interactive-learning/player) and [`@interactive-learning/recorder`](https://www.npmjs.com/package/@interactive-learning/recorder).
 
 ## Develop
 
