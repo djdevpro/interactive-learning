@@ -41,6 +41,7 @@ const editingId = ref<string | null>(null);
 const stepList = ref<{ $el: HTMLElement } | null>(null);
 const importInput = ref<HTMLInputElement | null>(null);
 let flashTimer: ReturnType<typeof setTimeout> | undefined;
+let preview: { guideId: string; windowId: number } | undefined;
 
 /** Without access, Chrome hides the address of the tab from the extension. */
 const page = computed(() => {
@@ -191,6 +192,25 @@ async function importFile(event: Event): Promise<void> {
     return;
   }
   if (await run({ type: 'import', guideId: document.id })) showFlash('Guide imported');
+}
+
+/**
+ * Plays the guide in a window beside the recorded tab, which keeps its panel open for edits.
+ * A second click brings the same window back instead of opening another one.
+ */
+async function openPreview(): Promise<void> {
+  const guideId = state.value.guideId;
+  if (!guideId) return;
+  if (preview?.guideId === guideId) {
+    const focused = await browser.windows
+      .update(preview.windowId, { focused: true })
+      .then(() => true)
+      .catch(() => false);
+    if (focused) return;
+  }
+  const url = `${browser.runtime.getURL('/preview.html')}?guide=${encodeURIComponent(guideId)}`;
+  const opened = await browser.windows.create({ url, type: 'popup', width: 1100, height: 760 });
+  preview = opened?.id === undefined ? undefined : { guideId, windowId: opened.id };
 }
 
 /** Downloads `guide.json` and its screenshots as separate files in one ZIP archive. */
@@ -492,6 +512,15 @@ onUnmounted(() => {
           @click="exportGuide"
         >
           <Icon name="download" />Export ZIP
+        </button>
+        <button
+          class="secondary"
+          type="button"
+          :disabled="!state.stepCount"
+          title="Play the guide in a window, as the site will show it"
+          @click="openPreview"
+        >
+          <Icon name="eye" />Preview
         </button>
         <button class="secondary" type="button" @click="confirmDiscard = true">New guide</button>
       </footer>

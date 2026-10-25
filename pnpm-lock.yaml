@@ -118,6 +118,9 @@ importers:
       '@interactive-learning/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@interactive-learning/player':
+        specifier: workspace:*
+        version: link:../../packages/player
       '@interactive-learning/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

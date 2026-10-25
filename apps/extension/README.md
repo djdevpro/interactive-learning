@@ -10,7 +10,8 @@ From the repository root, run `pnpm --filter @interactive-learning/extension bui
 2. Name the guide and press **Start recording**. Walk through the flow in the page.
 3. Clicks, settled fields, scrolls and navigations on the same site produce screenshots, each with the address of its page. To keep a filled form, press **Capture step** before you submit.
 4. Press **Finish**, then open a step. Click the screenshot to add as many numbered markers as you need, drag one to move it, and give each its text. The cursor clicks the first marker. Delete a marker with its trash button or the Delete key, and change the step title and page address. **Save step** keeps the changes and **Cancel** drops them.
-5. Press **Export ZIP**. The archive holds `guide.json` and an `assets` folder with the screenshots. Unzip it in the public folder of a site and point the player to `guide.json`.
+5. Press **Preview** to play the guide in the player, in a window beside your tab. Edits you save in the panel show there at once.
+6. Press **Export ZIP**. The archive holds `guide.json` and an `assets` folder with the screenshots. Unzip it in the public folder of a site and point the player to `guide.json`.
 
 **Import** opens a ZIP made by the extension or by `interactive-learning export --zip`, so a guide prepared by an AI agent can be refined here. **New guide** deletes the current guide, so export it first.
 
