@@ -5,6 +5,13 @@ node_modules/
 # Build output and tool caches
 dist/
 .output/
+# Rust build output and generated Tauri schemas of the desktop studio
+target/
+apps/desktop/src-tauri/gen/
+# Working files of the Impeccable design skill: decision rounds and review captures
+**/.impeccable/questions/
+**/.impeccable/review/
+**/.impeccable/mocks/
 .wxt/
 .artifacts/
 coverage/

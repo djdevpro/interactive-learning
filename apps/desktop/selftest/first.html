@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Billing settings · Demo workspace</title>
+    <style>
+      body {
+        margin: 0;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        color: #1d2026;
+        background: #f3f4f6;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        padding: 14px 32px;
+        background: #1c6651;
+        color: #fff;
+        font-weight: 600;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 8px 24px 48px;
+      }
+      section {
+        min-height: 520px;
+        margin: 24px 0;
+        padding: 28px 32px;
+        border-radius: 12px;
+        background: #fff;
+      }
+      .button {
+        display: inline-block;
+        padding: 10px 18px;
+        border: 0;
+        border-radius: 8px;
+        background: #1c6651;
+        color: #fff;
+        font: inherit;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      #panel {
+        margin-top: 20px;
+        padding: 16px 20px;
+        border-left: 4px solid #1c6651;
+        background: #eef6f2;
+      }
+    </style>
+  </head>
+  <body>
+    <header>Demo workspace</header>
+    <main>
+      <section>
+        <h1>Billing settings</h1>
+        <p>Manage the plan, the invoices and the payment method of your workspace.</p>
+        <p>Your plan renews on 1 November. Every invoice is sent to accounts@example.test.</p>
+      </section>
+      <section>
+        <h2>Invoices</h2>
+        <p>Open an invoice to see its lines, its amount and its payment.</p>
+        <button id="reveal" class="button" type="button">Show the October invoice</button>
+        <div id="panel" hidden>
+          <h3>Invoice 2026-10</h3>
+          <p>Team plan, 12 seats · 144.00 €</p>
+        </div>
+      </section>
+      <section>
+        <h2>Payment method</h2>
+        <p>The card on file ends in 4242. Change it before the next renewal.</p>
+        <a id="next" class="button" href="second.html">Change the payment method</a>
+      </section>
+    </main>
+    <script>
+      document.getElementById('reveal').addEventListener('click', () => {
+        document.getElementById('panel').hidden = false;
+      });
+    </script>
+  </body>
+</html>

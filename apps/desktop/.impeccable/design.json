@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T21:46:55Z",
+  "title": "Design System: Interactive Learning Studio",
+  "extensions": {
+    "colorMeta": {
+      "stage": {
+        "role": "neutral",
+        "displayName": "Stage",
+        "canonical": "#0f1012",
+        "tonalRamp": [
+          "#0f1012",
+          "#151619",
+          "#1c1d20",
+          "#25272b",
+          "#2f3136",
+          "#3c3f45",
+          "#8b9098",
+          "#e8e9eb"
+        ]
+      },
+      "app": {
+        "role": "neutral",
+        "displayName": "App",
+        "canonical": "#151619",
+        "tonalRamp": [
+          "#0f1012",
+          "#151619",
+          "#1c1d20",
+          "#25272b",
+          "#2f3136",
+          "#3c3f45",
+          "#8b9098",
+          "#e8e9eb"
+        ]
+      },
+      "panel": {
+        "role": "neutral",
+        "displayName": "Panel",
+        "canonical": "#1c1d20",
+        "tonalRamp": [
+          "#0f1012",
+          "#151619",
+          "#1c1d20",
+          "#25272b",
+          "#2f3136",
+          "#3c3f45",
+          "#8b9098",
+          "#e8e9eb"
+        ]
+      },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "canonical": "#25272b",
+        "tonalRamp": [
+          "#0f1012",
+          "#151619",
+          "#1c1d20",
+          "#25272b",
+          "#2f3136",
+          "#3c3f45",
+          "#8b9098",
+          "#e8e9eb"
+        ]
+      },
+      "high": {
+        "role": "neutral",
+        "displayName": "High",
+        "canonical": "#2f3136",
+        "tonalRamp": [
+          "#0f1012",
+          "#151619",
+          "#1c1d20",
+          "#25272b",
+          "#2f3136",
+          "#3c3f45",
+          "#8b9098",
+          "#e8e9eb"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#2c2e33"
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Strong Hairline",
+        "canonical": "#3c3f45"
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "canonical": "#e8e9eb"
+      },
+      "text-soft": {
+        "role": "neutral",
+        "displayName": "Soft Text",
+        "canonical": "#b0b4bb"
+      },
+      "text-faint": {
+        "role": "neutral",
+        "displayName": "Faint Text",
+        "canonical": "#8b9098"
+      },
+      "brand": {
+        "role": "primary",
+        "displayName": "Logo Green",
+        "canonical": "#1c6651"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Action Green",
+        "canonical": "#1f7a5c",
+        "tonalRamp": [
+          "#0b2a20",
+          "#123f31",
+          "#1c6651",
+          "#1f7a5c",
+          "#248a68",
+          "#4fbf98",
+          "#8fd8bd",
+          "#d6f2e7"
+        ]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Action Green Hover",
+        "canonical": "#248a68"
+      },
+      "accent-text": {
+        "role": "primary",
+        "displayName": "Selection Green",
+        "canonical": "#4fbf98"
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Selection Wash",
+        "canonical": "rgb(79 191 152 / 16%)"
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "On Accent",
+        "canonical": "#ffffff"
+      },
+      "record": {
+        "role": "secondary",
+        "displayName": "Record Red",
+        "canonical": "#d43b40",
+        "tonalRamp": [
+          "#3a1012",
+          "#5e181b",
+          "#8e2328",
+          "#d43b40",
+          "#e2494e",
+          "#ff7a7e",
+          "#ffaaac",
+          "#ffe0e1"
+        ]
+      },
+      "record-hover": {
+        "role": "secondary",
+        "displayName": "Record Red Hover",
+        "canonical": "#e2494e"
+      },
+      "done": {
+        "role": "neutral",
+        "displayName": "Published Green",
+        "canonical": "#43b581"
+      },
+      "changed": {
+        "role": "neutral",
+        "displayName": "Changed Amber",
+        "canonical": "#e6a23c"
+      },
+      "danger": {
+        "role": "neutral",
+        "displayName": "Danger",
+        "canonical": "#e5484d"
+      },
+      "danger-text": {
+        "role": "neutral",
+        "displayName": "Danger Text",
+        "canonical": "#ff8085"
+      },
+      "danger-ground": {
+        "role": "neutral",
+        "displayName": "Danger Ground",
+        "canonical": "#3a1d1f"
+      },
+      "line-hover": {
+        "role": "neutral",
+        "displayName": "Line Hover",
+        "canonical": "#4a4e55"
+      },
+      "label-blue": {
+        "role": "tertiary",
+        "displayName": "Label Blue",
+        "canonical": "#4c8dff"
+      },
+      "label-teal": {
+        "role": "tertiary",
+        "displayName": "Label Teal",
+        "canonical": "#2bb3a3"
+      },
+      "label-green": {
+        "role": "tertiary",
+        "displayName": "Label Green",
+        "canonical": "#57b560"
+      },
+      "label-yellow": {
+        "role": "tertiary",
+        "displayName": "Label Yellow",
+        "canonical": "#dfb33f"
+      },
+      "label-orange": {
+        "role": "tertiary",
+        "displayName": "Label Orange",
+        "canonical": "#ee8a3c"
+      },
+      "label-pink": {
+        "role": "tertiary",
+        "displayName": "Label Pink",
+        "canonical": "#e2598f"
+      },
+      "label-purple": {
+        "role": "tertiary",
+        "displayName": "Label Purple",
+        "canonical": "#9b6ef0"
+      },
+      "label-slate": {
+        "role": "tertiary",
+        "displayName": "Label Slate",
+        "canonical": "#8b95a5"
+      },
+      "marker-ink": {
+        "role": "tertiary",
+        "displayName": "Marker Ink",
+        "canonical": "#2f3542"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The site name in the library and the first-launch welcome."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Messages in the empty viewer and empty browser."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Theme names, dialog titles, the step title in the properties panel."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default interface text, buttons (at 500) and fields."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Metadata, hints, field labels, clip captions, marker chips."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Uppercase panel group headers (Sites, Steps, Timing, Screenshot, Markers), ruler tick labels, clip numbers, keyboard keys."
+      },
+      "figures": {
+        "displayName": "Tabular figures",
+        "purpose": "Every time, duration, count and step number."
+      }
+    },
+    "shadows": [
+      {
+        "name": "lift",
+        "value": "0 1px 0 rgb(255 255 255 / 4%) inset, 0 12px 32px rgb(0 0 0 / 50%)",
+        "purpose": "Menus, dialogs, toasts, the floating zoom bar, a dragged clip."
+      },
+      {
+        "name": "screen-on-stage",
+        "value": "0 0 0 1px rgb(255 255 255 / 8%), 0 12px 40px rgb(0 0 0 / 55%)",
+        "purpose": "The step screenshot on the canvas."
+      },
+      {
+        "name": "thumbnail-hover",
+        "value": "inset 0 0 0 1px rgb(255 255 255 / 14%), 0 10px 28px rgb(0 0 0 / 45%)",
+        "purpose": "A library tutorial thumbnail under the pointer."
+      },
+      {
+        "name": "off-screen-dim",
+        "value": "0 0 0 100vmax rgb(8 9 11 / 55%)",
+        "purpose": "Darkens the part of a long page that was not on screen."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Studio easing for every state transition."
+      },
+      {
+        "name": "state",
+        "value": "120ms",
+        "purpose": "Hover, press and border transitions."
+      },
+      {
+        "name": "toast-in",
+        "value": "200ms",
+        "purpose": "Toasts rise 8px and fade in."
+      },
+      {
+        "name": "recording-pulse",
+        "value": "1.2s ease-in-out infinite",
+        "purpose": "The white dot of the toolbar Record toggle while recording."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "1ms",
+        "purpose": "All animations and transitions under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Every action that is not the main one.",
+      "html": "<button class=\"ds-btn\">Duplicate</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border: 1px solid #3c3f45; border-radius: 6px; background: #25272b; color: #e8e9eb; font: 500 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1), scale 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn:hover { background: #2f3136; } .ds-btn:active { scale: 0.96; } .ds-btn:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action of a screen: Publish, Export, New tutorial.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 15V4.5M7.5 9 12 4.5 16.5 9\"/><path d=\"M4.5 14v4a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5v-4\"/></svg>Publish</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border: 1px solid #1f7a5c; border-radius: 6px; background: #1f7a5c; color: #fff; font: 500 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1), scale 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: #248a68; border-color: #248a68; } .ds-btn-primary:active { scale: 0.96; } .ds-btn-primary:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; }"
+    },
+    {
+      "name": "Record Button",
+      "kind": "button",
+      "refersTo": "button-record",
+      "description": "The toolbar Record toggle, the one Record control; it fills red, counts the steps and pulses its dot while recording.",
+      "html": "<button class=\"ds-record\"><span class=\"ds-record-dot\"></span>Record</button> <button class=\"ds-record ds-record-live\"><span class=\"ds-record-dot\"></span>Recording · 3</button>",
+      "css": ".ds-record { display: inline-flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 12px 0 10px; border: 1px solid #3c3f45; border-radius: 6px; background: #25272b; color: #e8e9eb; font: 500 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-record:hover { background: #2f3136; } .ds-record:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; } .ds-record-dot { width: 10px; height: 10px; border-radius: 50%; background: #d43b40; } .ds-record-live { border-color: #d43b40; background: #d43b40; color: #fff; } .ds-record-live:hover { background: #e2494e; border-color: #e2494e; } .ds-record-live .ds-record-dot { background: #fff; animation: ds-rec 1.2s ease-in-out infinite; } @keyframes ds-rec { 50% { opacity: 0.35; } }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Toolbar and panel actions that should recede: undo, redo, Show whole page.",
+      "html": "<button class=\"ds-btn-quiet\">Show whole page</button>",
+      "css": ".ds-btn-quiet { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #b0b4bb; font: 500 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms cubic-bezier(0.2, 0, 0, 1), color 120ms; } .ds-btn-quiet:hover { background: rgb(255 255 255 / 7%); color: #e8e9eb; } .ds-btn-quiet:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A text field sunken into the panel, with its label above.",
+      "html": "<label class=\"ds-field\"><span>Page address</span><input class=\"ds-input\" value=\"https://example.com/billing\"></label>",
+      "css": ".ds-field { display: grid; gap: 5px; font: 400 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; } .ds-field > span { color: #b0b4bb; font-size: 12px; } .ds-input { width: 100%; min-height: 30px; padding: 5px 9px; border: 1px solid #3c3f45; border-radius: 6px; background: #151619; color: #e8e9eb; font: inherit; transition: border-color 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-input:hover { border-color: #4a4e55; } .ds-input:focus { border-color: #4fbf98; outline: none; }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "chip",
+      "refersTo": "segmented-option-selected",
+      "description": "A choice among a few values, such as Fade or Cut.",
+      "html": "<div class=\"ds-seg\"><button aria-pressed=\"true\">Fade</button><button aria-pressed=\"false\">Cut</button></div>",
+      "css": ".ds-seg { display: inline-flex; padding: 2px; border: 1px solid #3c3f45; border-radius: 6px; background: #151619; } .ds-seg button { min-height: 24px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: #b0b4bb; font: 400 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; cursor: pointer; transition: background-color 120ms, color 120ms; } .ds-seg button:hover { color: #e8e9eb; } .ds-seg button[aria-pressed='true'] { background: #2f3136; color: #e8e9eb; } .ds-seg button:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; }"
+    },
+    {
+      "name": "Logo",
+      "kind": "custom",
+      "refersTo": "logo",
+      "description": "The app icon as the studio draws it: three white bars on Logo Green. 26px in the sites panel, 56px on the welcome screen, 20px in the Library button.",
+      "html": "<svg class=\"ds-logo\" width=\"26\" height=\"26\" viewBox=\"0 0 128 128\" aria-hidden=\"true\"><rect width=\"128\" height=\"128\" rx=\"28\" fill=\"#1c6651\"/><rect x=\"33\" y=\"60\" width=\"15\" height=\"36\" rx=\"7.5\" fill=\"#fff\"/><rect x=\"56.5\" y=\"34\" width=\"15\" height=\"62\" rx=\"7.5\" fill=\"#fff\"/><rect x=\"80\" y=\"48\" width=\"15\" height=\"48\" rx=\"7.5\" fill=\"#fff\"/></svg>",
+      "css": ".ds-logo { display: block; flex: none; }"
+    },
+    {
+      "name": "Panel Head",
+      "kind": "nav",
+      "refersTo": "panel-head",
+      "description": "The 40px head of the steps panel, level with the viewer bar: the panel name as a caption and its count.",
+      "html": "<header class=\"ds-panel-head\"><h2>Steps <span>4</span></h2></header>",
+      "css": ".ds-panel-head { display: flex; align-items: center; height: 40px; padding: 0 12px; border-bottom: 1px solid #2c2e33; background: #1c1d20; } .ds-panel-head h2 { display: flex; align-items: center; gap: 6px; margin: 0; color: #8b9098; font: 600 11px/1 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; } .ds-panel-head span { padding: 1px 6px; border-radius: 8px; background: #2f3136; color: #b0b4bb; letter-spacing: 0; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Menu",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "A popover menu; the item under the pointer fills Action Green.",
+      "html": "<div class=\"ds-menu\"><button>Rename</button><button>Move to theme</button><hr><button class=\"ds-danger\">Delete</button></div>",
+      "css": ".ds-menu { width: 210px; padding: 4px; border: 1px solid #3c3f45; border-radius: 10px; background: #25272b; box-shadow: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 12px 32px rgb(0 0 0 / 50%); color: #e8e9eb; font: 400 13px/1.45 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; } .ds-menu button { display: flex; align-items: center; width: 100%; min-height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; } .ds-menu button:hover, .ds-menu button:focus-visible { background: #1f7a5c; outline: none; } .ds-menu .ds-danger { color: #ff8085; } .ds-menu .ds-danger:hover { background: #e5484d; color: #fff; } .ds-menu hr { margin: 4px 0; border: 0; border-top: 1px solid #3c3f45; }"
+    },
+    {
+      "name": "Step Clip",
+      "kind": "custom",
+      "refersTo": "clip",
+      "description": "A step on the Steps track, colored by its theme label, width set by its duration.",
+      "html": "<div class=\"ds-clip-lane\"><div class=\"ds-clip\"><div class=\"ds-clip-shot\"></div><div class=\"ds-clip-caption\"><span class=\"ds-clip-number\">2</span><span class=\"ds-clip-title\">Click “Change the payment method”</span><span class=\"ds-clip-time\">4 s</span></div></div></div>",
+      "css": ".ds-clip-lane { position: relative; height: 92px; width: 360px; background: #151619; border-bottom: 1px solid #2c2e33; } .ds-clip { --l: #ee8a3c; position: absolute; top: 6px; bottom: 6px; left: 8px; right: 8px; overflow: hidden; border: 1px solid color-mix(in oklab, var(--l) 70%, #1c1d20); border-radius: 5px; background: color-mix(in oklab, var(--l) 34%, #1c1d20); cursor: grab; transition: box-shadow 120ms cubic-bezier(0.2, 0, 0, 1); } .ds-clip:hover, .ds-clip:focus-visible { border-color: #4fbf98; box-shadow: 0 0 0 1px #4fbf98; outline: none; } .ds-clip-shot { position: absolute; inset: 0 0 22px; background: #0f1012; } .ds-clip-caption { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px 0 4px; background: color-mix(in oklab, var(--l) 34%, #1c1d20); color: #e8e9eb; font: 400 12px/1 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; font-variant-numeric: tabular-nums; } .ds-clip-number { display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--l); color: #101114; font-size: 11px; font-weight: 700; } .ds-clip-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-clip-time { color: #b0b4bb; }"
+    },
+    {
+      "name": "Marker Chip",
+      "kind": "chip",
+      "refersTo": "marker-chip",
+      "description": "A marker on the Markers track: disc number and name.",
+      "html": "<button class=\"ds-marker-chip\"><span class=\"ds-marker-num\">2</span>Change the payment method</button>",
+      "css": ".ds-marker-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 180px; height: 22px; padding: 0 8px 0 3px; border: 0; border-radius: 11px; background: #2f3136; color: #b0b4bb; font: 400 12px/1 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; cursor: pointer; } .ds-marker-chip:hover { color: #e8e9eb; } .ds-marker-chip:focus-visible { outline: 2px solid #4fbf98; outline-offset: 1px; } .ds-marker-num { display: grid; flex: none; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: #2f3542; box-shadow: 0 0 0 1px #fff inset; color: #fff; font-size: 10px; font-weight: 700; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Editing Bay",
+    "overview": "The studio is a video editor for tutorials, built to the category standard with Camtasia as the craft reference. A dark workspace of charcoal panels surrounds a near-black stage where the step is shown. Panels are separated by hairlines, not by gaps or cards. The tutorial reads left to right on a timeline of tracks, with a playhead across them.\n\nColor is functional and scarce. Everything is grey except three signals: the green of the logo for the main action, selection and focus; red only for recording; and the label color of each theme, carried by its clips like clip colors in an editor. Type is Segoe UI Variable at a compact 13px, so long sessions fit a lot on screen, and every time and count uses tabular figures so numbers do not jump while playing.\n\nTwo screens share the system. The library is a project browser: sites in a left panel, the tutorials of the open site grouped by theme as thumbnails. The editor is the editing bay: toolbar, steps panel, viewer with its bar and transport, properties panel, and the timeline below.",
+    "keyCharacteristics": [
+      "Three panel depths (stage, app, panel) plus raised controls, divided by 1px hairlines.",
+      "The greens of the logo for the main action, selection and focus; red for recording and nothing else.",
+      "The real logo, three white bars on its green tile, at the head of the library and on the toolbar's Library button.",
+      "One Record control, at the top left of the toolbar; the viewer keeps its bar in every view.",
+      "Theme label colors used as clip colors on the timeline and as dots in the library.",
+      "Segoe UI Variable, 13px body, tabular figures for every time and count.",
+      "Flat panels; shadows only on things that float (menus, dialogs, toasts, the zoom bar, a dragged clip)."
+    ],
+    "rules": [
+      {
+        "name": "The Record Red Rule",
+        "body": "Record red marks recording and nothing else: the Record button, its dot, and the frame of the browser while it records. Destructive actions use the separate danger red, and only in the confirmation step.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Green Rule",
+        "body": "Green means \"this is the main action\" or \"this is selected\". One filled green button per screen; every other button is grey. Logo Green belongs to the logo alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clip Color Rule",
+        "body": "Label colors belong to themes. They color clips, dots and number badges, never buttons, text or panels.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Time Rule",
+        "body": "Every time, duration, count and step number is set with tabular figures (`font-variant-numeric: tabular-nums`), so values do not shift while the playhead moves.",
+        "section": "typography"
+      },
+      {
+        "name": "The Compact Scale Rule",
+        "body": "Body text is 13px. Sizes come from the seven-step scale (11, 12, 13, 14, 16, 20, 26px); nothing larger than 26px appears in the interface.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Panel Rule",
+        "body": "Panels, toolbars and tracks have no shadow. If it does not float, it does not cast one.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Screenshot Edge Rule",
+        "body": "Every screenshot thumbnail carries a 1px white edge at 10% opacity, inset, so light pages keep their outline on dark panels.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Single Record Rule",
+        "body": "Recording starts and stops from one control, the toggle at the top left of the toolbar. The empty viewer repeats it only while a tutorial has no step yet.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** separate regions with 1px hairlines (line, line-strong) on tonal depths, not with gaps, cards or shadows.",
+      "**Do** keep one filled green button per screen, for its main action.",
+      "**Do** use Selection Green (accent-text) for every focus outline, focused border, selected item and the playhead.",
+      "**Do** set every time, duration, count and step number with tabular figures.",
+      "**Do** color clips, theme dots and clip numbers with the theme's label color, and keep the label off everything else.",
+      "**Do** use the shared button, field, segmented, menu and dialog styles; size small controls with the small and icon variants and keep their extended hit area.",
+      "**Do** draw icons from the studio's 24px line set at stroke 1.75, in the current text color.",
+      "**Do** give every screenshot thumbnail the faint white inset edge.",
+      "**Do** draw the logo with its component, in its own green.",
+      "**Do** honor reduced motion: transitions and animations drop to 1ms."
+    ],
+    "donts": [
+      "**Don't** use record red for anything but recording.",
+      "**Don't** add a second Record control or a tab that splits the steps into another view of the same screenshots.",
+      "**Don't** put shadows on panels, toolbars, tracks or rows; only floating things lift.",
+      "**Don't** introduce a light theme surface, a card dashboard, or web-form page layout inside the studio.",
+      "**Don't** set interface text above 26px or below 11px, or use a face other than Segoe UI Variable.",
+      "**Don't** add uppercase tracked labels above headings; uppercase 11px is for panel group headers only, and it is the heading itself.",
+      "**Don't** open a dialog for anything but naming something new or confirming a deletion."
+    ]
+  }
+}

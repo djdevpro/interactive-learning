@@ -19,6 +19,7 @@
     "dev:svelte": "pnpm --filter @interactive-learning/example-svelte dev",
     "dev:html": "pnpm --filter @interactive-learning/example-html dev",
     "dev:wireframe": "pnpm --filter @interactive-learning/wireframe dev",
+    "dev:desktop": "pnpm --filter @interactive-learning/desktop dev",
     "dev:studio": "pnpm --filter @interactive-learning/recorder build && pnpm --filter @interactive-learning/studio build && node scripts/studio-example.mjs",
     "dev:all": "pnpm --parallel --filter \"@interactive-learning/example*\" --fail-if-no-match dev",
     "build": "pnpm --filter @interactive-learning/protocol build && pnpm --filter @interactive-learning/player build && pnpm --filter @interactive-learning/recorder build && pnpm --filter @interactive-learning/extension build && pnpm --filter @interactive-learning/studio build && node scripts/copy-companions.mjs && pnpm build:examples",
@@ -32,6 +33,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "deploy": "gh workflow run release.yml --ref main -f create_version_pr=true",
+    "release:desktop": "gh workflow run desktop-release.yml --ref main",
     "release": "pnpm typecheck && pnpm build && changeset publish",
     "release:pack": "node scripts/release-pack.mjs",
     "pack:check": "node scripts/verify-packages.mjs"

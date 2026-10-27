@@ -1,8 +1,18 @@
-![Interactive Learning — screenshot-based guides for Vue, React, Svelte and Web Components](.github/assets/banner.webp)
+![Interactive Learning, screenshot-based guides for Vue, React, Svelte and Web Components](.github/assets/banner.webp)
 
 # Interactive Learning
 
 Turn real screenshots into **interactive step-by-step guides**. Viewers play a guide like a short video, with an animated cursor and numbered markers, through one Web Component that works in **Vue, React, Svelte and plain HTML**.
+
+## Interactive Learning Studio
+
+Interactive Learning Studio is the desktop app for people who make tutorials without writing code, on Windows and Linux. It keeps the tutorials in a library on disk, one folder per site with its themes inside, and edits each tutorial like a short video.
+
+- **Record** opens the site in the built-in browser, and each click becomes a step with its screenshot, the cursor and a numbered marker.
+- On the timeline you order the steps and set how long each one plays, and on the canvas you place the markers.
+- **Play** shows the tutorial in the player, **Publish** copies it into the web project of the site, and **Export** writes a ZIP.
+
+Download it from the [releases](https://github.com/djdevpro/interactive-learning/releases). Recording works on Windows for now. [Desktop app README](apps/desktop/README.md)
 
 ## Record a guide
 
@@ -17,11 +27,11 @@ npx -y @interactive-learning/recorder skill install --agent codex
 
 **From the command line.** `create`, `capture add`, `annotate` and `validate` build a guide from screenshot files. Run them with npx or add `@interactive-learning/recorder` as a dev dependency. [Recorder README](packages/recorder/README.md)
 
-## Refine a guide in the studio
+## Refine a guide in the web studio
 
 ![The studio, with the steps on the left, the step editor in the middle and a live preview of the player on the right](.github/assets/studio.png)
 
-A first recording rarely says everything. The studio opens a guide of your project in the browser so you can finish it by hand, whoever recorded it.
+A first recording rarely says everything. The web studio opens a guide of your project in the browser so you can finish it by hand, whoever recorded it.
 
 - **A guide written by your AI agent** already sits in the public folder of the project. Open it as is.
 - **A guide recorded with the extension** comes as a ZIP. Unzip it in the public folder, for example in `public/guides/sign-up/`, then open it.
@@ -49,7 +59,7 @@ pnpm add @interactive-learning/player
 
 Screenshots load from the folder of `guide.json`. The [player README](packages/player/README.md) covers frameworks, themes, languages and styling.
 
-Both packages are on npm: [`@interactive-learning/player`](https://www.npmjs.com/package/@interactive-learning/player) and [`@interactive-learning/recorder`](https://www.npmjs.com/package/@interactive-learning/recorder).
+Both packages are on npm, [`@interactive-learning/player`](https://www.npmjs.com/package/@interactive-learning/player) and [`@interactive-learning/recorder`](https://www.npmjs.com/package/@interactive-learning/recorder).
 
 ## Develop
 
@@ -61,7 +71,7 @@ pnpm build
 pnpm dev:player
 ```
 
-`pnpm dev:player` opens a live preview of the player on port 4316. `pnpm dev:all` starts the Vue, React, Svelte and HTML examples on ports 4317 to 4320, `pnpm dev:wireframe` a prototype to record on port 4321, and `pnpm dev:studio` the studio on a copy of the example guide. `pnpm check` runs the types, tests and builds.
+`pnpm dev:player` opens a live preview of the player on port 4316. `pnpm dev:all` starts the Vue, React, Svelte and HTML examples on ports 4317 to 4320, `pnpm dev:wireframe` a prototype to record on port 4321, `pnpm dev:studio` the web studio on a copy of the example guide, and `pnpm dev:desktop` Interactive Learning Studio, which needs Rust. `pnpm check` runs the types, tests and builds. `pnpm release:desktop` builds Interactive Learning Studio for Windows and Linux on GitHub and publishes the installers as a release, once its version in `apps/desktop/src-tauri/tauri.conf.json` is new.
 
 | Folder              | Content                                                      |
 | ------------------- | ------------------------------------------------------------ |
@@ -70,7 +80,8 @@ pnpm dev:player
 | `packages/editor`   | Private step editor shared by the extension and the studio   |
 | `packages/protocol` | Private guide format and validation, bundled into the others |
 | `apps/extension`    | Browser extension                                            |
-| `apps/studio`       | Studio, served by the `studio` command                       |
+| `apps/studio`       | Web studio, served by the `studio` command                   |
+| `apps/desktop`      | Interactive Learning Studio, the desktop app                 |
 | `apps/example*`     | Example applications                                         |
 | `skills`            | AI skill                                                     |
 

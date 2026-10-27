@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment method · Demo workspace</title>
+    <style>
+      body {
+        margin: 0;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        color: #1d2026;
+        background: #f3f4f6;
+      }
+      header {
+        padding: 14px 32px;
+        background: #1c6651;
+        color: #fff;
+        font-weight: 600;
+      }
+      main {
+        max-width: 640px;
+        margin: 48px auto;
+        padding: 32px;
+        border-radius: 12px;
+        background: #fff;
+      }
+      label {
+        display: block;
+        margin: 16px 0 6px;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px 12px;
+        border: 1px solid #c8ccd2;
+        border-radius: 8px;
+        font: inherit;
+      }
+      .button {
+        margin-top: 24px;
+        padding: 10px 18px;
+        border: 0;
+        border-radius: 8px;
+        background: #1c6651;
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+      #done {
+        margin-top: 20px;
+        color: #1c6651;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <header>Demo workspace</header>
+    <main>
+      <h1>Payment method</h1>
+      <label for="name">Name on the card</label>
+      <input id="name" placeholder="Ada Lovelace" />
+      <label for="card">Card number</label>
+      <input id="card" placeholder="4242 4242 4242 4242" />
+      <button id="finish" class="button" type="button">Save the card</button>
+      <p id="done" hidden>The card is saved.</p>
+    </main>
+    <script>
+      document.getElementById('finish').addEventListener('click', () => {
+        document.getElementById('done').hidden = false;
+      });
+    </script>
+  </body>
+</html>

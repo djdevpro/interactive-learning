@@ -1,0 +1,116 @@
+name: Release desktop studio
+
+# Builds Interactive Learning Studio for Windows and Linux and publishes the installers as a GitHub
+# release. It runs only by hand, with `pnpm release:desktop`, never on a push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      release-id: ${{ steps.draft.outputs.id }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      # A draft left by a failed run is reused; a published version is never overwritten.
+      - name: Draft the release of this version
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: |
+            Interactive Learning Studio records, edits and publishes tutorials.
+
+            On Windows, run the `setup.exe` installer. Windows may say the publisher is unknown, because the installer is not signed yet. Choose More info, then Run anyway.
+
+            On Linux, make the `.AppImage` executable and open it, or install the `.deb` or `.rpm` package. Recording works on Windows for now. On Linux the library, the editor, the player, Publish and Export work.
+        run: |
+          version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          tag="desktop-v$version"
+          existing=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
+            --jq ".[] | select(.tag_name == \"$tag\") | \"\(.id) \(.draft)\"" | head -n 1)
+          if [ -z "$existing" ]; then
+            id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$tag" \
+              -f target_commitish="$GITHUB_SHA" -f name="Interactive Learning Studio $version" \
+              -f body="$BODY" -F draft=true --jq .id)
+          elif [ "${existing#* }" = "true" ]; then
+            id=${existing%% *}
+          else
+            echo "::error::$tag is already released. Raise the version in apps/desktop/src-tauri/tauri.conf.json."
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.system }}
+    needs: draft
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: Windows
+            runner: windows-latest
+            bundles: nsis
+          # The oldest supported Ubuntu keeps the packages compatible with older distributions.
+          - system: Linux
+            runner: ubuntu-22.04
+            bundles: deb,rpm,appimage
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the webview of Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      # The studio plays tutorials with the built player.
+      - run: pnpm --filter @interactive-learning/player build
+      - uses: tauri-apps/tauri-action@v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: --bundles ${{ matrix.bundles }}
+          releaseId: ${{ needs.draft.outputs.release-id }}
+          releaseAssetNamePattern: interactive-learning-studio-[version]-[platform]-[arch][setup][ext]
+
+  publish:
+    needs: [draft, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ needs.draft.outputs.release-id }}
+        run: gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false --silent

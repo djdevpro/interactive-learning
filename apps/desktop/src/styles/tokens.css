@@ -1,0 +1,115 @@
+/*
+ * Interactive Learning Studio follows the standard of video editors: charcoal panels around a
+ * dark stage, hairline separators, the green of the logo for selection and the main action, and
+ * red only while recording. Themes carry label colors, as clips do in an editor.
+ */
+:root {
+  color-scheme: dark;
+
+  /* Depths, from the stage behind the viewer to the controls that sit on panels. */
+  --stage: #0f1012;
+  --app: #151619;
+  --panel: #1c1d20;
+  --raised: #25272b;
+  --high: #2f3136;
+  --line: #2c2e33;
+  --line-strong: #3c3f45;
+
+  /* Text, all above 4.5:1 on panels. */
+  --text: #e8e9eb;
+  --text-soft: #b0b4bb;
+  --text-faint: #8b9098;
+
+  /* The green of the logo, as the app icon draws it. */
+  --brand: #1c6651;
+  /* The main action, selection and focus, in the greens of the logo: a deeper one fills buttons
+     under white text, a lighter one draws rings, the playhead and links on the dark panels. */
+  --accent: #1f7a5c;
+  --accent-hover: #248a68;
+  --accent-text: #4fbf98;
+  --accent-soft: rgb(79 191 152 / 16%);
+  --on-accent: #ffffff;
+
+  /* Recording only. */
+  --record: #d43b40;
+  --record-hover: #e2494e;
+
+  --done: #43b581;
+  --changed: #e6a23c;
+  /* Deleting and errors: a red of its own, apart from the red of recording. */
+  --danger: #e5484d;
+  --danger-text: #ff8085;
+  --danger-ground: #3a1d1f;
+  --line-hover: #4a4e55;
+
+  /* Label colors of themes, as clip colors. */
+  --label-blue: #4c8dff;
+  --label-teal: #2bb3a3;
+  --label-green: #57b560;
+  --label-yellow: #dfb33f;
+  --label-orange: #ee8a3c;
+  --label-pink: #e2598f;
+  --label-purple: #9b6ef0;
+  --label-slate: #8b95a5;
+  --label: var(--label-blue);
+
+  --focus: var(--accent-text);
+
+  --font: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-display:
+    'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --text-xs: 0.6875rem;
+  --text-sm: 0.75rem;
+  --text-md: 0.8125rem;
+  --text-lg: 0.875rem;
+  --text-xl: 1rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 1.625rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --lift: 0 1px 0 rgb(255 255 255 / 4%) inset, 0 12px 32px rgb(0 0 0 / 50%);
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-label='blue'] {
+  --label: var(--label-blue);
+}
+[data-label='teal'] {
+  --label: var(--label-teal);
+}
+[data-label='green'] {
+  --label: var(--label-green);
+}
+[data-label='yellow'] {
+  --label: var(--label-yellow);
+}
+[data-label='orange'] {
+  --label: var(--label-orange);
+}
+[data-label='pink'] {
+  --label: var(--label-pink);
+}
+[data-label='purple'] {
+  --label: var(--label-purple);
+}
+[data-label='slate'] {
+  --label: var(--label-slate);
+}
+
+/* Clip bodies take a deep shade of their label, recomputed where the label is set. */
+:root,
+[data-label] {
+  --label-deep: color-mix(in oklab, var(--label) 34%, var(--panel));
+  --label-line: color-mix(in oklab, var(--label) 70%, var(--panel));
+}
