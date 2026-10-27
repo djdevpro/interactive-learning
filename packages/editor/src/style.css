@@ -773,3 +773,109 @@ input[aria-invalid='true'] {
   font-size: 13px;
   font-weight: 550;
 }
+
+/* Screenshot of the step editor. A full-page screenshot scrolls inside it. */
+.canvas-scroll {
+  max-height: 60vh;
+  overflow: auto;
+  border-radius: var(--radius);
+}
+
+/* On a large screen, the screenshot fills the main area instead of the panel. */
+.canvas-stage.large {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+
+.canvas-stage.large .canvas-scroll {
+  flex: 1;
+  max-height: none;
+  padding: 24px 32px 48px;
+  border-radius: 0;
+}
+
+.canvas-stage.large .canvas {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+}
+
+/* The part of a full-page screenshot the screen showed; the rest is dimmed. */
+.canvas-window {
+  position: absolute;
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 100vmax rgb(12 14 18 / 38%);
+  pointer-events: none;
+}
+
+.canvas-window-handle {
+  position: absolute;
+  top: 0;
+  left: 12px;
+  translate: 0 -50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: ns-resize;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.canvas-window-handle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+select {
+  width: 100%;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--field-line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus);
+}
+
+/* Reordering steps. */
+.steps li[draggable='true'] .step {
+  cursor: grab;
+}
+
+.steps li.dragged {
+  opacity: 0.45;
+}
+
+.steps li.drop-before .step {
+  box-shadow: 0 -3px 0 var(--accent);
+}
+
+.steps li.drop-after .step {
+  box-shadow: 0 3px 0 var(--accent);
+}
+
+.step-grip {
+  color: var(--muted);
+}

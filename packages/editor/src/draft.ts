@@ -3,6 +3,8 @@ import type {
   GuideCursor,
   GuideDocument,
   GuideStep,
+  GuideTransition,
+  GuideViewport,
 } from '@interactive-learning/protocol';
 
 /** What the step editor saves. Positions are normalized from 0 to 1. */
@@ -13,11 +15,17 @@ export interface StepDraft {
   annotations: GuideAnnotation[];
   /** Address of the page of the step. Empty removes it, undefined keeps it. */
   url?: string;
+  /** Visible part of a full-page screenshot. Null shows the whole image, undefined keeps it. */
+  viewport?: GuideViewport | null;
+  /** Undefined keeps the transition and the duration of the step. */
+  transition?: GuideTransition;
+  durationMs?: number;
 }
 
 /** The step with the edits of the draft, ready to validate. */
 export function applyStepDraft(step: GuideStep, draft: StepDraft): GuideStep {
-  const { cursor: _previous, source, ...rest } = step;
+  const { cursor: _previous, source, viewport: shownPart, ...rest } = step;
+  const viewport = draft.viewport === undefined ? shownPart : (draft.viewport ?? undefined);
   const url = draft.url?.trim();
   let edited = source;
   if (url) edited = { ...(source ?? { capturedAt: new Date().toISOString() }), url };
@@ -30,6 +38,9 @@ export function applyStepDraft(step: GuideStep, draft: StepDraft): GuideStep {
     title: draft.title,
     description: draft.description,
     annotations: draft.annotations,
+    ...(draft.durationMs ? { durationMs: draft.durationMs } : {}),
+    ...(draft.transition ? { transition: draft.transition } : {}),
+    ...(viewport ? { viewport } : {}),
     ...(draft.cursor ? { cursor: draft.cursor } : {}),
     ...(edited ? { source: edited } : {}),
   };

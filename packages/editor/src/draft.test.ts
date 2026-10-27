@@ -77,3 +77,29 @@ describe('step drafts', () => {
     ]);
   });
 });
+
+describe('full-page steps', () => {
+  const tall: GuideStep = { ...step, viewport: { x: 0, y: 0.3, width: 1, height: 0.2 } };
+
+  it('keeps the visible part unless the draft moves or clears it', () => {
+    const base = { title: 'Open', description: '', cursor: null, annotations: [] };
+    expect(applyStepDraft(tall, base).viewport).toEqual({ x: 0, y: 0.3, width: 1, height: 0.2 });
+    expect(
+      applyStepDraft(tall, { ...base, viewport: { x: 0, y: 0.5, width: 1, height: 0.2 } }).viewport
+        ?.y,
+    ).toBe(0.5);
+    expect(applyStepDraft(tall, { ...base, viewport: null }).viewport).toBeUndefined();
+  });
+
+  it('sets the transition and the duration', () => {
+    const edited = applyStepDraft(tall, {
+      title: 'Open',
+      description: '',
+      cursor: null,
+      annotations: [],
+      transition: 'cut',
+      durationMs: 4000,
+    });
+    expect(edited).toMatchObject({ transition: 'cut', durationMs: 4000 });
+  });
+});

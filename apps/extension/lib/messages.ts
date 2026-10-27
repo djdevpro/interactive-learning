@@ -1,4 +1,9 @@
-import type { GuideAnnotation, GuideCursor } from '@interactive-learning/protocol';
+import type {
+  GuideAnnotation,
+  GuideCursor,
+  GuideTransition,
+  GuideViewport,
+} from '@interactive-learning/protocol';
 
 export const CHANNEL = 'interactive-learning/recorder';
 export const SESSION_KEY = 'interactive-learning:session';
@@ -55,6 +60,9 @@ export type Command =
       annotations: GuideAnnotation[];
       /** Address of the page of the step. Empty removes it, undefined keeps it. */
       url?: string;
+      viewport?: GuideViewport | null;
+      transition?: GuideTransition;
+      durationMs?: number;
     }
   | {
       channel: typeof CHANNEL;

@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue';
-import type { GuideAnnotation, GuideStep, Point } from '@interactive-learning/protocol';
+import { computed, nextTick, ref, watch } from 'vue';
+import type {
+  GuideAnnotation,
+  GuideStep,
+  GuideTransition,
+  GuideViewport,
+  Point,
+} from '@interactive-learning/protocol';
 import type { StepDraft } from './draft';
 import Icon from './Icon.vue';
 
 /**
  * One step: its markers, its title, and where the cursor clicks, which is the first marker.
- * Positions are normalized from 0 to 1. Nothing is saved before Save step.
+ * Positions are normalized from 0 to 1 of the whole screenshot. Nothing is saved before Save step.
  */
 const props = defineProps<{
   step: GuideStep;
@@ -17,6 +23,11 @@ const props = defineProps<{
   markerNumber: number;
   /** `retake` captures the recorded tab again; `upload` picks an image file. */
   replace?: 'retake' | 'upload' | undefined;
+  /**
+   * Selector of an element that shows the screenshot instead of this panel, so a large screen
+   * edits it at full size. The fields stay in the panel.
+   */
+  canvasTarget?: string | undefined;
   busy: boolean;
 }>();
 const emit = defineEmits<{
@@ -28,19 +39,29 @@ const emit = defineEmits<{
   'replace-image': [file: File];
 }>();
 
+const durations = [1500, 2000, 2500, 3000, 4000, 5000, 6000];
+
 const markers = ref<GuideAnnotation[]>([]);
 const title = ref('');
 const url = ref('');
 const urlError = ref('');
+const viewport = ref<GuideViewport | null>(null);
+const transition = ref<GuideTransition>('fade');
+const duration = ref(2500);
 const selectedId = ref<string | null>(null);
 const confirmDelete = ref(false);
 const canvas = ref<HTMLElement | null>(null);
+const scroller = ref<HTMLElement | null>(null);
 const list = ref<HTMLElement | null>(null);
 const imageInput = ref<HTMLInputElement | null>(null);
 let initial = '';
 let dragging: { id: string; moved: boolean } | undefined;
+let windowDrag: { offset: number } | undefined;
 
 const clamp = (value: number) => Math.round(Math.min(1, Math.max(0, value)) * 10_000) / 10_000;
+const durationChoices = computed(() =>
+  [...new Set([...durations, props.step.durationMs])].sort((a, b) => a - b),
+);
 
 function draft(): StepDraft {
   const stepTitle = title.value.trim();
@@ -54,6 +75,9 @@ function draft(): StepDraft {
       title: marker.title.trim() || stepTitle || `Step ${props.number}`,
     })),
     url: url.value.trim(),
+    viewport: viewport.value ? { ...viewport.value } : null,
+    transition: transition.value,
+    durationMs: duration.value,
   };
 }
 
@@ -70,6 +94,9 @@ watch(
     title.value = props.step.title;
     url.value = props.step.source?.url ?? '';
     urlError.value = '';
+    viewport.value = props.step.viewport ? { ...props.step.viewport } : null;
+    transition.value = props.step.transition ?? 'fade';
+    duration.value = props.step.durationMs;
     selectedId.value = null;
     confirmDelete.value = false;
     initial = JSON.stringify(draft());
@@ -83,6 +110,14 @@ function pointAt(event: PointerEvent | MouseEvent): Point {
     x: clamp((event.clientX - box.left) / box.width),
     y: clamp((event.clientY - box.top) / box.height),
   };
+}
+
+/** A full-page screenshot opens on the part the window showed at this step. */
+function revealWindow(): void {
+  const box = canvas.value;
+  const area = scroller.value;
+  if (!box || !area || !viewport.value) return;
+  area.scrollTop = Math.max(0, viewport.value.y * box.clientHeight - 32);
 }
 
 async function select(id: string, focus = false): Promise<void> {
@@ -121,6 +156,27 @@ function endDrag(id: string): void {
   // A press without movement is a selection: the marker's text field gets the focus.
   if (dragging && !dragging.moved) void select(id, true);
   dragging = undefined;
+}
+
+// The frame of the visible part moves up and down: it sets where the page is scrolled.
+function startWindowDrag(event: PointerEvent): void {
+  if (!viewport.value) return;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  windowDrag = { offset: pointAt(event).y - viewport.value.y };
+}
+
+function dragWindow(event: PointerEvent): void {
+  if (!windowDrag || !viewport.value) return;
+  const top = pointAt(event).y - windowDrag.offset;
+  viewport.value = { ...viewport.value, y: clamp(Math.min(top, 1 - viewport.value.height)) };
+}
+
+function onWindowKey(event: KeyboardEvent): void {
+  if (!viewport.value || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+  event.preventDefault();
+  const step = (event.shiftKey ? 0.5 : 0.1) * viewport.value.height;
+  const top = viewport.value.y + (event.key === 'ArrowUp' ? -step : step);
+  viewport.value = { ...viewport.value, y: clamp(Math.min(top, 1 - viewport.value.height)) };
 }
 
 function onMarkerKey(id: string, event: KeyboardEvent): void {
@@ -180,7 +236,7 @@ function pickImage(event: Event): void {
   if (file) emit('replace-image', file);
 }
 
-defineExpose({ pending });
+defineExpose({ pending, save });
 </script>
 
 <template>
@@ -209,48 +265,90 @@ defineExpose({ pending });
       </div>
     </div>
 
-    <div ref="canvas" class="canvas" @click="add">
-      <img :src="image" :alt="`Screenshot of step ${number}`" draggable="false" />
-      <svg
-        v-if="markers[0]"
-        class="canvas-cursor"
-        :style="{ left: `${markers[0].x * 100}%`, top: `${markers[0].y * 100}%` }"
-        width="16"
-        height="20"
-        viewBox="0 0 30 36"
-        aria-hidden="true"
-      >
-        <path
-          d="M3 2.5 25 20l-10 .8 4.6 9-5 2.6-4.5-9L3 30V2.5Z"
-          fill="#1b1e22"
-          stroke="white"
-          stroke-width="2.4"
-          stroke-linejoin="round"
-        />
-      </svg>
-      <button
-        v-for="(marker, index) in markers"
-        :key="marker.id"
-        class="canvas-marker"
-        :class="{ selected: marker.id === selectedId }"
-        type="button"
-        :style="{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }"
-        :aria-label="`Marker ${markerNumber + index}. Drag or use the arrow keys to move it, Delete to remove it.`"
-        @click.stop
-        @pointerdown="startDrag(marker.id, $event)"
-        @pointermove="drag"
-        @pointerup="endDrag(marker.id)"
-        @pointercancel="endDrag(marker.id)"
-        @keydown="onMarkerKey(marker.id, $event)"
-        @focus="selectedId = marker.id"
-      >
-        {{ markerNumber + index }}
-      </button>
-      <span v-if="!markers.length" class="canvas-hint">Click to add a marker</span>
-    </div>
+    <Teleport :to="canvasTarget || 'body'" :disabled="!canvasTarget">
+      <div class="canvas-stage" :class="{ large: Boolean(canvasTarget) }">
+        <div ref="scroller" class="canvas-scroll">
+          <div ref="canvas" class="canvas" @click="add">
+            <img
+              :src="image"
+              :alt="`Screenshot of step ${number}`"
+              draggable="false"
+              @load="revealWindow"
+            />
+            <div
+              v-if="viewport"
+              class="canvas-window"
+              :style="{
+                left: `${viewport.x * 100}%`,
+                top: `${viewport.y * 100}%`,
+                width: `${viewport.width * 100}%`,
+                height: `${viewport.height * 100}%`,
+              }"
+            >
+              <span
+                class="canvas-window-handle"
+                role="slider"
+                tabindex="0"
+                aria-label="Visible part of the page. Drag it or use the arrow keys to scroll."
+                :aria-valuenow="Math.round(viewport.y * 100)"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                @click.stop
+                @pointerdown.stop="startWindowDrag"
+                @pointermove="dragWindow"
+                @pointerup="windowDrag = undefined"
+                @pointercancel="windowDrag = undefined"
+                @keydown="onWindowKey"
+              >
+                <Icon name="updown" :size="14" />Visible on screen
+              </span>
+            </div>
+            <svg
+              v-if="markers[0]"
+              class="canvas-cursor"
+              :style="{ left: `${markers[0].x * 100}%`, top: `${markers[0].y * 100}%` }"
+              width="16"
+              height="20"
+              viewBox="0 0 30 36"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 2.5 25 20l-10 .8 4.6 9-5 2.6-4.5-9L3 30V2.5Z"
+                fill="#1b1e22"
+                stroke="white"
+                stroke-width="2.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <button
+              v-for="(marker, index) in markers"
+              :key="marker.id"
+              class="canvas-marker"
+              :class="{ selected: marker.id === selectedId }"
+              type="button"
+              :style="{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }"
+              :aria-label="`Marker ${markerNumber + index}. Drag or use the arrow keys to move it, Delete to remove it.`"
+              @click.stop
+              @pointerdown="startDrag(marker.id, $event)"
+              @pointermove="drag"
+              @pointerup="endDrag(marker.id)"
+              @pointercancel="endDrag(marker.id)"
+              @keydown="onMarkerKey(marker.id, $event)"
+              @focus="selectedId = marker.id"
+            >
+              {{ markerNumber + index }}
+            </button>
+            <span v-if="!markers.length" class="canvas-hint">Click to add a marker</span>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <div class="tools">
-      <p class="hint">Click the screenshot to add a marker. Drag one to move it.</p>
+      <p class="hint">
+        Click the screenshot to add a marker. Drag one to move it.
+        <template v-if="viewport">Drag the frame to change what the screen shows.</template>
+      </p>
       <button
         v-if="replace === 'retake'"
         class="ghost"
@@ -300,9 +398,27 @@ defineExpose({ pending });
         id="step-title"
         v-model="title"
         maxlength="500"
-        placeholder="Name your project"
+        placeholder="What the viewer does here"
         autocomplete="off"
       />
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="step-duration">Duration</label>
+        <select id="step-duration" v-model.number="duration">
+          <option v-for="choice in durationChoices" :key="choice" :value="choice">
+            {{ (choice / 1000).toLocaleString() }} s
+          </option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="step-transition">New screen</label>
+        <select id="step-transition" v-model="transition">
+          <option value="fade">Fade in</option>
+          <option value="cut">Cut</option>
+        </select>
+      </div>
     </div>
 
     <div class="field">
@@ -342,9 +458,7 @@ defineExpose({ pending });
             v-model="marker.title"
             maxlength="500"
             autocomplete="off"
-            :placeholder="
-              index === 0 ? 'Give your project a clear name.' : 'What this marker shows'
-            "
+            placeholder="What the viewer should know here"
             :aria-label="`Text of marker ${markerNumber + index}`"
             @focus="selectedId = marker.id"
           />
