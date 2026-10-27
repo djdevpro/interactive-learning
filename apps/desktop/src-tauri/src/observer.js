@@ -1,5 +1,6 @@
 // Runs in every page of the site view and reports what the person does to the studio through a
-// DevTools binding. It only listens: it never blocks, changes or replays anything in the page.
+// binding of the engine, a DevTools binding on Windows and a script message handler on Linux. It
+// only listens: it never blocks, changes or replays anything in the page.
 (() => {
   if (window.top !== window || window.__interactiveLearningObserver) return;
   window.__interactiveLearningObserver = true;

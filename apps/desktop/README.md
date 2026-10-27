@@ -6,11 +6,9 @@ The desktop app of Interactive Learning for tutorial creators, on Windows and Li
 
 The [releases of the repository](https://github.com/djdevpro/interactive-learning/releases) hold the Windows installer and the Linux packages. The Windows installer is not signed yet, so Windows may say its publisher is unknown. Choose More info, then Run anyway. On Linux, make the AppImage executable and open it, or install the `.deb` or `.rpm` package.
 
-Recording works on Windows for now. On Linux the library, the editor, the player, Publish and Export work.
-
 ## Run it
 
-It needs Rust and, on Windows, the Microsoft C++ build tools and WebView2, which Windows 10 and 11 already include. Linux needs the WebKitGTK libraries listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Run these commands from the repository root.
+It needs Rust and, on Windows, the Microsoft C++ build tools and WebView2, which Windows 10 and 11 already include. Linux needs WebKitGTK 2.40 or later and the other libraries listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Run these commands from the repository root.
 
 ```sh
 pnpm install
@@ -48,12 +46,11 @@ On the keyboard, Space plays or pauses, ← and → change the step, Delete remo
 
 ## How it works
 
-- The window holds two webviews. The studio interface fills the window, and the site view sits over the part the interface leaves for it. The site view has no access to the studio commands, and the files of the library reach only the studio view, through its own `library` address.
-- Screenshots come from the engine of the site view through the DevTools protocol of WebView2, so the image matches the page pixel for pixel without any browser permission. A script in every page reports clicks, scrolls and changes through a DevTools binding. It only listens. It never blocks, changes or replays anything in the page, and never reads the values of fields.
+- The window holds two webviews. The studio interface fills the window, and the site view sits over the part the interface leaves for it. On Linux a GTK overlay holds them, since Tauri would stack them one under the other. The site view has no access to the studio commands, and the files of the library reach only the studio view, through its own `library` address.
+- Screenshots come straight from the engine of the site view, through the DevTools protocol of WebView2 on Windows and the snapshot API of WebKitGTK on Linux, so the image matches the page pixel for pixel without any browser permission. A script in every page reports clicks, scrolls and changes through a DevTools binding on Windows and a script message handler on Linux. It only listens. It never blocks, changes or replays anything in the page, and never reads the values of fields.
 - To draw a whole page, the engine shows it from its top for a moment, which would flash in the window. A still picture of the window takes the place of the site view meanwhile, and the page goes back to where you left it, so nothing moves on screen. Drawn from its top, a header that sticks to the top of the window stays at the top of the picture.
 - Screenshots are named after their content, so the same screen captured twice is one file.
-- Recording works on Windows for now. On Linux the site view runs on WebKitGTK, whose screenshot API is still to wire, so Record, Capture and Retake stay off there.
 
 ## Self-test
 
-`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size and goes back to the library. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials.
+`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size and goes back to the library. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials. On Linux without a screen, start the command with `xvfb-run -a`.

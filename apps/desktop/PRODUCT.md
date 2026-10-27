@@ -32,7 +32,7 @@ The browser lives inside the editor. Recording happens in the studio itself: eve
 - Step editing: markers (add, move, delete, their texts), title, duration, transition between screens (fade or cut), the part of the page shown on screen, page address, retake of the screenshot.
 - Preview in the player, publish to the linked project folder, export ZIP.
 - The guide format (schema 1.0.0, `packages/protocol`) is shared with every other package; new fields stay optional so older players keep working.
-- Screenshots come from the DevTools protocol of WebView2, so recording works on Windows only for now.
+- Screenshots come straight from the engine of the site view, WebView2 on Windows and WebKitGTK on Linux, so recording needs no browser permission.
 - Interface copy is in English, like the other surfaces of the project.
 - Undecided: accounts, cloud sync, collaboration, voice-over, video export.
 

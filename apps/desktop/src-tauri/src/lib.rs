@@ -1,12 +1,14 @@
 //! Desktop studio: one window holds the studio interface and, beside it, the site being recorded.
 //! The site runs in its own webview without any access to the studio commands.
 
-mod devtools;
+mod engine;
 mod library;
+#[cfg(target_os = "linux")]
+mod overlay;
 mod selftest;
 
+use engine::Shot;
 use serde::Serialize;
-use serde_json::json;
 use tauri::{
     ipc::{InvokeBody, Request},
     webview::{PageLoadEvent, WebviewBuilder},
@@ -116,15 +118,22 @@ fn site_bounds(
     visible: bool,
 ) -> Result<(), String> {
     let view = site(&app)?;
-    let position = if visible {
-        LogicalPosition::new(x, y)
+    let (x, y) = if visible {
+        (x, y)
     } else {
-        LogicalPosition::new(-20_000.0, -20_000.0)
+        (-20_000.0, -20_000.0)
     };
-    view.set_position(position)
-        .map_err(|error| error.to_string())?;
-    view.set_size(LogicalSize::new(width.max(1.0), height.max(1.0)))
-        .map_err(|error| error.to_string())
+    let (width, height) = (width.max(1.0), height.max(1.0));
+    #[cfg(target_os = "linux")]
+    overlay::place(&view, x, y, width, height)?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        view.set_position(LogicalPosition::new(x, y))
+            .map_err(|error| error.to_string())?;
+        view.set_size(LogicalSize::new(width, height))
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 /// Screenshot of the site, read by its engine. `full_page` keeps the whole height of the page and
@@ -152,16 +161,15 @@ async fn site_capture(
 }
 
 async fn capture(view: &Webview, full_page: bool) -> Result<Capture, String> {
-    let info = devtools::evaluate(view, PAGE_INFO).await?;
+    let info = engine::evaluate(view, PAGE_INFO).await?;
     let read = |key: &str| info[key].as_f64().unwrap_or(0.0);
     let width = read("width").max(1.0);
     let height = read("height").max(1.0);
     let url = info["url"].as_str().unwrap_or_default().to_string();
     let title = info["title"].as_str().unwrap_or_default().to_string();
     if !full_page {
-        let params = json!({ "format": "jpeg", "quality": 90, "optimizeForSpeed": true });
         return Ok(Capture {
-            src: format!("data:image/jpeg;base64,{}", screenshot(view, params).await?),
+            src: engine::screenshot(view, Shot::Still).await?,
             image: None,
             url,
             title,
@@ -180,25 +188,26 @@ async fn capture(view: &Webview, full_page: bool) -> Result<Capture, String> {
     let scale = (MAX_IMAGE_SIDE / (page_height * dpr))
         .min(MAX_IMAGE_SIDE / (page_width * dpr))
         .min(1.0);
-    let params = json!({
-        "format": "webp", "quality": 85, "captureBeyondViewport": true,
-        "clip": { "x": 0, "y": 0, "width": page_width, "height": page_height, "scale": scale },
-    });
+    let shot = Shot::Page {
+        width: page_width,
+        height: page_height,
+        scale,
+    };
     let (x, y) = (read("x"), read("y"));
     // The engine draws the page with the window where it stands: a header that sticks to the top
     // of the window would land in the middle of the picture. From the top of the page, it stays
     // at the top, then the page goes back to where the person left it.
     let scrolled = x > 0.0 || y > 0.0;
     if scrolled {
-        devtools::evaluate(
+        engine::evaluate(
             view,
             &format!("{QUIET}, scrollTo({{ left: 0, top: 0, behavior: 'instant' }})"),
         )
         .await?;
     }
-    let data = screenshot(view, params).await;
+    let src = engine::screenshot(view, shot).await;
     if scrolled {
-        devtools::evaluate(
+        engine::evaluate(
             view,
             &format!("scrollTo({{ left: {x}, top: {y}, behavior: 'instant' }}), {AWAKE}"),
         )
@@ -209,7 +218,7 @@ async fn capture(view: &Webview, full_page: bool) -> Result<Capture, String> {
         height: page_height,
     };
     Ok(Capture {
-        src: format!("data:image/webp;base64,{}", data?),
+        src: src?,
         image: None,
         url,
         title,
@@ -221,17 +230,6 @@ async fn capture(view: &Webview, full_page: bool) -> Result<Capture, String> {
         },
         page,
     })
-}
-
-async fn screenshot(view: &Webview, params: serde_json::Value) -> Result<String, String> {
-    let shot: serde_json::Value = serde_json::from_str(
-        &devtools::call(view, "Page.captureScreenshot", params.to_string()).await?,
-    )
-    .map_err(|error| error.to_string())?;
-    shot["data"]
-        .as_str()
-        .map(str::to_string)
-        .ok_or_else(|| "The screenshot came back empty.".to_string())
 }
 
 /// Writes the bytes of an exported archive. The path comes in a header, percent-encoded.
@@ -345,7 +343,9 @@ pub fn run() {
                 LogicalPosition::new(-20_000.0, -20_000.0),
                 LogicalSize::new(1.0, 1.0),
             )?;
-            devtools::observe(&site, app.handle().clone())?;
+            engine::observe(&site, app.handle().clone())?;
+            #[cfg(target_os = "linux")]
+            overlay::stack(&site)?;
             if let Some(folder) = test_folder {
                 selftest::run(app.handle().clone(), folder);
             }

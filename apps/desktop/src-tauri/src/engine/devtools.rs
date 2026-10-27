@@ -1,16 +1,10 @@
-//! The DevTools protocol of the site view. On Windows the engine is WebView2, a Chromium, so the
-//! studio reads screenshots, page metrics and observations straight from it.
+//! WebView2, a Chromium, read through its DevTools protocol.
 
-use tauri::{AppHandle, Emitter, Webview};
-
-/// Name of the function the observer calls in the page.
-pub const BINDING: &str = "__interactiveLearning";
-/// Script injected into every page of the site view.
-pub const OBSERVER: &str = include_str!("observer.js");
+use super::{forward, Shot, BINDING, OBSERVER};
+use tauri::{AppHandle, Webview};
 
 /// Calls one DevTools method and returns its JSON result.
-#[cfg(windows)]
-pub async fn call(view: &Webview, method: &str, params: String) -> Result<String, String> {
+async fn call(view: &Webview, method: &str, params: String) -> Result<String, String> {
     use std::sync::{Arc, Mutex};
     use webview2_com::CallDevToolsProtocolMethodCompletedHandler;
     use windows::core::{HSTRING, PCWSTR};
@@ -52,11 +46,6 @@ pub async fn call(view: &Webview, method: &str, params: String) -> Result<String
         .map_err(|_| "The engine did not answer.".to_string())?
 }
 
-#[cfg(not(windows))]
-pub async fn call(_view: &Webview, _method: &str, _params: String) -> Result<String, String> {
-    Err("The studio reads pages on Windows for now.".to_string())
-}
-
 /// Evaluates an expression in the page and returns its value as JSON.
 pub async fn evaluate(view: &Webview, expression: &str) -> Result<serde_json::Value, String> {
     let params = serde_json::json!({ "expression": expression, "returnByValue": true });
@@ -71,7 +60,6 @@ pub async fn evaluate(view: &Webview, expression: &str) -> Result<serde_json::Va
 
 /// Installs the observer in the current page and every next one, and forwards each report to the
 /// studio as a `site-observation` event. The page reaches nothing else of the studio.
-#[cfg(windows)]
 pub fn observe(view: &Webview, app: AppHandle) -> Result<(), String> {
     use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2;
     use webview2_com::{
@@ -102,7 +90,7 @@ pub fn observe(view: &Webview, app: AppHandle) -> Result<(), String> {
                     if let Some(args) = args {
                         let mut json = PWSTR::null();
                         if args.ParameterObjectAsJson(&mut json).is_ok() {
-                            forward(&app, &take_pwstr(json));
+                            report(&app, &take_pwstr(json));
                         }
                     }
                     Ok(())
@@ -131,24 +119,16 @@ pub fn observe(view: &Webview, app: AppHandle) -> Result<(), String> {
     .map_err(|error| error.to_string())
 }
 
-#[cfg(not(windows))]
-pub fn observe(_view: &Webview, _app: AppHandle) -> Result<(), String> {
-    Ok(())
-}
-
 /// A binding call carries the report as a string; anything else on the channel is ignored.
-fn forward(app: &AppHandle, event: &str) {
+fn report(app: &AppHandle, event: &str) {
     let Ok(event) = serde_json::from_str::<serde_json::Value>(event) else {
         return;
     };
     if event["name"] != BINDING {
         return;
     }
-    let Some(payload) = event["payload"].as_str() else {
-        return;
-    };
-    if let Ok(report) = serde_json::from_str::<serde_json::Value>(payload) {
-        let _ = app.emit("site-observation", report);
+    if let Some(payload) = event["payload"].as_str() {
+        forward(app, payload);
     }
 }
 
@@ -161,4 +141,33 @@ pub async fn click(view: &Webview, x: f64, y: f64) -> Result<(), String> {
         call(view, "Input.dispatchMouseEvent", params.to_string()).await?;
     }
     Ok(())
+}
+
+/// A screenshot drawn by the engine, which keeps a page beyond the window by itself.
+pub async fn screenshot(view: &Webview, shot: Shot) -> Result<String, String> {
+    let (format, params) = match shot {
+        Shot::Still => (
+            "jpeg",
+            serde_json::json!({ "format": "jpeg", "quality": 90, "optimizeForSpeed": true }),
+        ),
+        Shot::Page {
+            width,
+            height,
+            scale,
+        } => (
+            "webp",
+            serde_json::json!({
+                "format": "webp", "quality": 85, "captureBeyondViewport": true,
+                "clip": { "x": 0, "y": 0, "width": width, "height": height, "scale": scale },
+            }),
+        ),
+        Shot::Png => ("png", serde_json::json!({ "format": "png" })),
+    };
+    let reply: serde_json::Value =
+        serde_json::from_str(&call(view, "Page.captureScreenshot", params.to_string()).await?)
+            .map_err(|error| error.to_string())?;
+    let data = reply["data"]
+        .as_str()
+        .ok_or_else(|| "The screenshot came back empty.".to_string())?;
+    Ok(format!("data:image/{format};base64,{data}"))
 }

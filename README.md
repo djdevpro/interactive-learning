@@ -12,7 +12,7 @@ Interactive Learning Studio is the desktop app for people who make tutorials wit
 - On the timeline you order the steps and set how long each one plays, and on the canvas you place the markers.
 - **Play** shows the tutorial in the player, **Publish** copies it into the web project of the site, and **Export** writes a ZIP.
 
-Download it from the [releases](https://github.com/djdevpro/interactive-learning/releases). Recording works on Windows for now. [Desktop app README](apps/desktop/README.md)
+Download it from the [releases](https://github.com/djdevpro/interactive-learning/releases). [Desktop app README](apps/desktop/README.md)
 
 ## Record a guide
 

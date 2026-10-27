@@ -9,7 +9,8 @@ use std::io::Write;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Listener, Manager};
 
-use crate::{devtools, SITE, STUDIO};
+use crate::engine::{self, Shot};
+use crate::{SITE, STUDIO};
 
 async fn pause(ms: u64) {
     tokio::time::sleep(Duration::from_millis(ms)).await;
@@ -42,13 +43,13 @@ pub fn run(app: AppHandle, folder: String) {
         let _ = app.emit("selftest-record", ());
         pause(2_500).await;
         if let Some(site) = app.get_webview(SITE) {
-            let installed = devtools::evaluate(
+            let installed = engine::evaluate(
                 &site,
                 "typeof window.__interactiveLearning + ' ' + Boolean(window.__interactiveLearningObserver)",
             )
             .await;
             report.push(format!("observer {installed:?}"));
-            let scrolled = devtools::evaluate(&site, "scrollTo(0, 700), scrollY").await;
+            let scrolled = engine::evaluate(&site, "scrollTo(0, 700), scrollY").await;
             report.push(format!("scroll {scrolled:?}"));
             pause(1_500).await;
             report.push(format!("reveal {:?}", click_on(&site, "#reveal").await));
@@ -81,7 +82,7 @@ pub fn run(app: AppHandle, folder: String) {
         let _ = app.emit("selftest-pause", ());
         pause(800).await;
         if let Some(studio) = app.get_webview(STUDIO) {
-            let state = devtools::evaluate(
+            let state = engine::evaluate(
                 &studio,
                 "[document.querySelector('.view-switch [aria-pressed=true]')?.textContent?.trim(),                  Boolean(document.getElementById('address'))].join(' ')",
             )
@@ -120,7 +121,7 @@ pub fn run(app: AppHandle, folder: String) {
 
 /// Scrolls an element into the middle of the window, then clicks its center.
 async fn click_on(site: &tauri::Webview, selector: &str) -> Result<(), String> {
-    let center = devtools::evaluate(
+    let center = engine::evaluate(
         site,
         &format!(
             "(() => {{ const element = document.querySelector({selector:?}); if (!element) return null; \
@@ -133,31 +134,17 @@ async fn click_on(site: &tauri::Webview, selector: &str) -> Result<(), String> {
         return Err(format!("{selector} is not in the page"));
     };
     pause(800).await;
-    devtools::click(site, x, y).await
+    engine::click(site, x, y).await
 }
 
 async fn save_view(app: &AppHandle, label: &str, path: &str) -> String {
     let result = match app.get_webview(label) {
-        Some(view) => devtools::call(
-            &view,
-            "Page.captureScreenshot",
-            r#"{"format":"png"}"#.to_string(),
-        )
-        .await
-        .and_then(|json| {
-            serde_json::from_str::<serde_json::Value>(&json)
-                .map_err(|error| error.to_string())
-                .and_then(|value| {
-                    value["data"]
-                        .as_str()
-                        .map(str::to_string)
-                        .ok_or_else(|| "empty screenshot".to_string())
-                })
-        }),
+        Some(view) => engine::screenshot(&view, Shot::Png).await,
         None => Err("missing view".to_string()),
     };
-    let saved = result.and_then(|data| {
-        decode_base64(&data)
+    let saved = result.and_then(|uri| {
+        let data = uri.split_once(',').map(|(_, data)| data).unwrap_or("");
+        decode_base64(data)
             .and_then(|bytes| std::fs::write(path, bytes).map_err(|error| error.to_string()))
     });
     match saved {

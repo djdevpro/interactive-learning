@@ -35,7 +35,7 @@ jobs:
 
             On Windows, run the `setup.exe` installer. Windows may say the publisher is unknown, because the installer is not signed yet. Choose More info, then Run anyway.
 
-            On Linux, make the `.AppImage` executable and open it, or install the `.deb` or `.rpm` package. Recording works on Windows for now. On Linux the library, the editor, the player, Publish and Export work.
+            On Linux, make the `.AppImage` executable and open it, or install the `.deb` or `.rpm` package.
         run: |
           version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
           tag="desktop-v$version"
