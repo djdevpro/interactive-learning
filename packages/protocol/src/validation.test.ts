@@ -86,3 +86,30 @@ describe('guide contract', () => {
     expect(sanitizeSourceUrl('file:///private')).toBeUndefined();
   });
 });
+
+describe('full-page screenshots and transitions', () => {
+  it('keeps the visible part of a step and its transition', () => {
+    const guide = fixture();
+    guide.steps[0]!.viewport = { x: 0, y: 0.4, width: 1, height: 0.2 };
+    guide.steps[0]!.transition = 'cut';
+    expect(validateGuide(JSON.parse(JSON.stringify(guide))).steps[0]).toMatchObject({
+      viewport: { x: 0, y: 0.4, width: 1, height: 0.2 },
+      transition: 'cut',
+    });
+  });
+
+  it('refuses a visible part outside the image or an unknown transition', () => {
+    const outside = fixture();
+    outside.steps[0]!.viewport = { x: 0, y: 0.9, width: 1, height: 0.2 };
+    expect(() => validateGuide(outside)).toThrow(/inside the image/);
+    const transition = fixture() as unknown as { steps: { transition: string }[] };
+    transition.steps[0]!.transition = 'spin';
+    expect(() => validateGuide(transition)).toThrow(/fade or cut/);
+  });
+
+  it('accepts a guide without these fields, as before', () => {
+    const step = validateGuide(fixture()).steps[0]!;
+    expect(step.viewport).toBeUndefined();
+    expect(step.transition).toBeUndefined();
+  });
+});

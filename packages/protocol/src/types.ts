@@ -30,12 +30,25 @@ export interface CaptureContext {
   dpr?: number;
   reason?: string;
 }
+/**
+ * Part of a screenshot that a step shows, from 0 to 1 of the image. A full-page screenshot is
+ * seen through the window of the browser: steps that share it scroll from one part to another.
+ */
+export interface GuideViewport extends Point {
+  width: number;
+  height: number;
+}
+/** How a step replaces the previous screenshot: `fade` blends them, `cut` swaps them at once. */
+export type GuideTransition = 'fade' | 'cut';
 export interface GuideStep {
   id: string;
   title: string;
   description: string;
   durationMs: number;
   assetId: string;
+  /** Cursor and annotation positions stay relative to the whole image, not to this part. */
+  viewport?: GuideViewport;
+  transition?: GuideTransition;
   cursor?: GuideCursor;
   annotations: GuideAnnotation[];
   source?: CaptureContext;

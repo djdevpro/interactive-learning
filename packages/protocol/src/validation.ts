@@ -5,6 +5,7 @@ import {
   type GuideAsset,
   type GuideStep,
   type GuideAnnotation,
+  type GuideViewport,
   type Point,
   type CaptureContext,
   type ImageMimeType,
@@ -157,8 +158,27 @@ function step(value: unknown, path: string): GuideStep {
     if (cursor.action !== undefined) result.cursor.action = cursor.action as 'click' | 'move';
     if (cursor.from !== undefined) result.cursor.from = point(cursor.from, path + '.cursor.from');
   }
+  if (obj.viewport !== undefined) result.viewport = viewport(obj.viewport, path + '.viewport');
+  if (obj.transition !== undefined) {
+    if (obj.transition !== 'fade' && obj.transition !== 'cut')
+      fail(path + '.transition', 'expected fade or cut');
+    result.transition = obj.transition;
+  }
   if (obj.source !== undefined) result.source = context(obj.source, path + '.source');
   unique(result.annotations, path + '.annotations');
+  return result;
+}
+function viewport(value: unknown, path: string): GuideViewport {
+  const obj = object(value, path);
+  const result = {
+    x: number(obj.x, path + '.x', 0, 1),
+    y: number(obj.y, path + '.y', 0, 1),
+    width: number(obj.width, path + '.width', 0.001, 1),
+    height: number(obj.height, path + '.height', 0.001, 1),
+  };
+  // Rounding in recorders may overshoot the edge by a hair.
+  if (result.x + result.width > 1.001 || result.y + result.height > 1.001)
+    fail(path, 'the visible part must stay inside the image');
   return result;
 }
 function unique(items: { id: string }[], path: string): void {
