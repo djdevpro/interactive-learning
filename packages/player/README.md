@@ -146,6 +146,7 @@ declare module 'svelte/elements' {
 | `assetBaseUrl` / `asset-base-url`      | Prefix for relative image paths                     |
 | `showInformation` / `show-information` | Titles and descriptions, hidden by default          |
 | `showAddress` / `show-address`         | Page address of each step, hidden by default        |
+| `hideControls` / `hide-controls`       | No control bar, for a host with its own controls    |
 | `theme`                                | Property and attribute. `light`, `dark` or `system` |
 | `messages`                             | Property. Replaces any built-in text                |
 | `lang`                                 | Interface language, inherited from the page         |
@@ -153,6 +154,8 @@ declare module 'svelte/elements' {
 | `seek(milliseconds)`                   | Absolute position                                   |
 | `goToStep(index)`                      | Step, zero based                                    |
 | `seekToStep(index)`                    | Step, then pause                                    |
+| `currentTime`                          | Time since the start of the guide, in ms, read-only |
+| `paused`                               | False while the guide plays, read-only              |
 | `step-change`                          | Event with `detail.index` and `detail.step`         |
 | `theme-change`                         | Event with `detail.theme`, after the bulb button    |
 | `guide-load`                           | Event with `detail.guide`, once the player is ready |
@@ -164,7 +167,9 @@ Events bubble and cross the Shadow DOM boundary. Commands work after `guide-load
 
 ## Behavior
 
-The player waits for each screenshot to load before it moves on, and pauses with a retry button when an image fails. The cursor glides to the click position and stops just below a marker instead of covering it. Markers appear one after another and keep a 40 px hit area. A marker that would sit under the controls moves up, with a line back to its true position, and the guide coordinates stay unchanged.
+The player waits for each screenshot to load before it moves on, loads the next one in advance, and pauses with a retry button when an image fails. The cursor glides to the click position and stops just below a marker instead of covering it.
+
+A step can show part of a tall screenshot: its `viewport` gives that part as fractions of the image, for example `{ "x": 0, "y": 0.4, "width": 1, "height": 0.25 }`, while its cursor and markers keep their positions on the whole image. Between two steps on the same screenshot, the player scrolls from one part to the other. A new screenshot fades in, or replaces the previous one at once when the step sets `"transition": "cut"`. Two screenshots of the same page, captured at the same width, fade in place before the scroll. The cursor waits where it last clicked while the page moves, then glides to its target, and the markers of the step appear once it arrives. Markers appear one after another and keep a 40 px hit area. A marker that would sit under the controls moves up, with a line back to its true position, and the guide coordinates stay unchanged.
 
 Pressing a marker pauses playback and opens its tooltip, which fades the screenshot behind it. Closing the tooltip resumes playback when the marker interrupted it. Esc closes the tooltip, then leaves full screen.
 

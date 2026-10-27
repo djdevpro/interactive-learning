@@ -10,6 +10,7 @@ import {
   validateGuide,
   type GuideDocument,
   type GuideStep,
+  type GuideViewport,
 } from '@interactive-learning/protocol';
 import playerStyles from './style.css?inline';
 import { AnnotationLayout, type AnnotationMarker } from './AnnotationLayout';
@@ -19,6 +20,14 @@ import { icon } from './icons';
 import { resolvePlayerMessages, type PlayerMessages } from './messages';
 import type { GuideColorScheme, GuideTheme } from './theme';
 import { TimelineController, type TimelineSnapshot } from './TimelineController';
+import {
+  WHOLE_IMAGE,
+  stageAspect,
+  stepMotion,
+  toStage,
+  viewOf,
+  type StepMotion,
+} from './StepMotion';
 import type { PlayerControls, PlayerEventMap, PlayerProperties } from './types';
 
 const hostStyles = `:host { display: block; min-width: 0; }
@@ -98,6 +107,7 @@ export class InteractiveLearningElement
     assetBaseUrl: { attribute: 'asset-base-url' },
     showInformation: { type: Boolean, attribute: 'show-information', reflect: true },
     showAddress: { type: Boolean, attribute: 'show-address', reflect: true },
+    hideControls: { type: Boolean, attribute: 'hide-controls', reflect: true },
     theme: { reflect: true },
     messages: { attribute: false },
   };
@@ -117,6 +127,8 @@ export class InteractiveLearningElement
   declare showInformation: boolean;
   /** Shows the address of the page of each step above the screenshot. The info button toggles it. */
   declare showAddress: boolean;
+  /** Hides the control bar, for a host that drives the player with its own controls. */
+  declare hideControls: boolean;
   /** `system` follows the operating system until the viewer picks light or dark. */
   declare theme: GuideTheme;
   /** Replaces any built-in text. The language follows the `lang` attribute, then English. */
@@ -146,6 +158,7 @@ export class InteractiveLearningElement
     this.assetBaseUrl = '';
     this.showInformation = false;
     this.showAddress = false;
+    this.hideControls = false;
     this.theme = 'system';
     this.messages = undefined;
     this.#view = {
@@ -213,6 +226,16 @@ export class InteractiveLearningElement
   seekToStep(index: number): void {
     this.pause();
     this.goToStep(index);
+  }
+
+  /** Time since the start of the guide, in milliseconds. */
+  get currentTime(): number {
+    return this.#view.snapshot.elapsedMs;
+  }
+
+  /** False while the guide plays, or waits for a screenshot before it plays on. */
+  get paused(): boolean {
+    return !this.#view.playbackRequested;
   }
 
   // Lifecycle.
@@ -398,7 +421,20 @@ export class InteractiveLearningElement
     if (!this.#isCurrentImage(event)) return;
     this.#patch({ imageStatus: 'ready' });
     this.#resumeWhenReady();
+    this.#prefetchNext();
   };
+
+  #prefetchNext(): void {
+    const { guide, snapshot } = this.#view;
+    const next = guide?.steps[snapshot.stepIndex + 1];
+    const asset = next && guide?.assets.find((candidate) => candidate.id === next.assetId);
+    if (!asset || asset.id === this.#currentAsset?.id || typeof Image === 'undefined') return;
+    new Image().src = this.#assetSource(asset.src);
+  }
+
+  #assetSource(src: string): string {
+    return resolveAssetSource(src, this.assetBaseUrl || this.#view.resolvedBase);
+  }
 
   #onImageError = (event: Event): void => {
     if (!this.#isCurrentImage(event)) return;
@@ -458,11 +494,38 @@ export class InteractiveLearningElement
     for (const step of guide.steps.slice(0, Math.max(0, snapshot.stepIndex))) {
       first += step.annotations.length;
     }
-    return (this.#currentStep?.annotations ?? []).map((annotation, index) => ({
-      annotation,
-      number: first + index,
-      position: AnnotationLayout.marker(annotation, viewport),
-    }));
+    const step = this.#currentStep;
+    if (!step) return [];
+    const view = viewOf(step);
+    return step.annotations
+      .map((annotation, index) => ({
+        annotation,
+        number: first + index,
+        stage: toStage(annotation, view),
+      }))
+      .filter(({ stage }) => stage.x > -0.01 && stage.x < 1.01 && stage.y > -0.01 && stage.y < 1.01)
+      .map(({ annotation, number, stage }) => ({
+        annotation,
+        number,
+        position: AnnotationLayout.marker(stage, viewport),
+      }));
+  }
+
+  /** Scroll, fade, cursor and markers at the current moment of the step. */
+  get #motion(): StepMotion | undefined {
+    const { guide, snapshot, reducedMotion } = this.#view;
+    const step = this.#currentStep;
+    if (!guide || !step) return undefined;
+    const assetOf = (candidate: GuideStep) =>
+      guide.assets.find((asset) => asset.id === candidate.assetId);
+    const previous = guide.steps[snapshot.stepIndex - 1];
+    return stepMotion({
+      step,
+      asset: assetOf(step),
+      previous: previous ? { step: previous, asset: assetOf(previous) } : undefined,
+      elapsedMs: snapshot.stepElapsedMs,
+      reducedMotion,
+    });
   }
 
   /** A marker pauses playback at once, so the screen does not change under the pointer. */
@@ -518,7 +581,7 @@ export class InteractiveLearningElement
 
   // The arrow stops just below any marker it would cover, so markers stay readable and clickable.
   #cursorOffset(markers: Marker[]): number {
-    const target = this.#currentStep?.cursor;
+    const target = this.#motion?.target;
     const { width, height } = this.#view.viewport;
     if (!target || !width || !height) return 0;
     const radius = 12;
@@ -538,22 +601,25 @@ export class InteractiveLearningElement
   }
 
   #cursor() {
-    const step = this.#currentStep;
-    if (!step?.cursor) return null;
-    const target = step.cursor;
-    const { snapshot, reducedMotion } = this.#view;
-    const from = target.from ?? { x: target.x, y: target.y };
-    const moveDuration = Math.min(900, step.durationMs * 0.4);
-    const fraction =
-      reducedMotion || moveDuration === 0 ? 1 : Math.min(1, snapshot.stepElapsedMs / moveDuration);
-    const eased = fraction * fraction * (3 - 2 * fraction);
-    const pulse = (snapshot.stepElapsedMs - moveDuration) / 500;
+    const cursor = this.#motion?.cursor;
+    if (!cursor) return null;
+    const ripple = cursor.ripple ?? 0;
     return {
-      x: from.x + (target.x - from.x) * eased,
-      y: from.y + (target.y - from.y) * eased,
-      showPulse: !reducedMotion && target.action === 'click' && pulse >= 0 && pulse <= 1,
-      pulseOpacity: Math.max(0, 1 - pulse),
-      pulseScale: 0.5 + Math.max(0, pulse) * 1.8,
+      x: cursor.x,
+      y: cursor.y,
+      showPulse: cursor.ripple !== null,
+      pulseOpacity: 1 - ripple,
+      pulseScale: 0.5 + ripple * 1.8,
+    };
+  }
+
+  /** One screenshot sized so that the stage shows `view` of it. */
+  #layer(view: GuideViewport, opacity: number): Record<string, string> {
+    return {
+      width: `${100 / view.width}%`,
+      height: `${100 / view.height}%`,
+      transform: `translate(${-view.x * 100}%, ${-view.y * 100}%)`,
+      opacity: String(opacity),
     };
   }
 
@@ -770,6 +836,12 @@ export class InteractiveLearningElement
     const { snapshot, imageStatus } = view;
     const step = this.#currentStep;
     const asset = this.#currentAsset;
+    const motion = this.#motion;
+    // The stage takes the shape of the part of the screenshot the step shows.
+    const shape = stageAspect(asset, step ? viewOf(step) : WHOLE_IMAGE);
+    const previousAsset =
+      motion?.previous &&
+      this.#view.guide?.assets.find((entry) => entry.id === motion.previous?.assetId);
     const showStartScreen = (!view.hasStarted || snapshot.ended) && imageStatus !== 'error';
     const playLabel = view.playbackRequested
       ? text.pause
@@ -797,33 +869,50 @@ export class InteractiveLearningElement
         <div
           class="il-guide__canvas"
           style=${styleMap({
-            aspectRatio: asset ? `${asset.width} / ${asset.height}` : '16 / 9',
-            '--il-aspect-ratio': String(asset ? asset.width / asset.height : 16 / 9),
+            aspectRatio: String(shape),
+            '--il-aspect-ratio': String(shape),
             '--il-progress': `${snapshot.progress * 100}%`,
           })}
           @click=${(event: Event) => {
             if (event.target === event.currentTarget) this.#closeAnnotation();
           }}
         >
-          ${
-            this.#imageSource && imageStatus !== 'error'
-              ? keyed(
-                  view.imageRequest,
-                  html`<img
-                    class="il-guide__image"
-                    src=${this.#imageSource}
-                    alt=${text.imageAlt(step?.title ?? '')}
-                    width=${ifDefined(asset?.width)}
-                    height=${ifDefined(asset?.height)}
+          <div class="il-guide__layers">
+            ${
+              previousAsset && motion?.previous
+                ? html`<img
+                    class="il-guide__layer"
+                    src=${this.#assetSource(previousAsset.src)}
+                    alt=""
+                    aria-hidden="true"
                     draggable="false"
-                    style=${imageStatus === 'ready' ? '' : 'display: none'}
-                    @load=${this.#onImageLoad}
-                    @error=${this.#onImageError}
-                    @click=${() => this.#closeAnnotation()}
-                  />`,
-                )
-              : nothing
-          }
+                    style=${styleMap(this.#layer(motion.previous.view, 1))}
+                  />`
+                : nothing
+            }
+            ${
+              this.#imageSource && imageStatus !== 'error'
+                ? keyed(
+                    view.imageRequest,
+                    html`<img
+                      class="il-guide__image il-guide__layer"
+                      src=${this.#imageSource}
+                      alt=${text.imageAlt(step?.title ?? '')}
+                      width=${ifDefined(asset?.width)}
+                      height=${ifDefined(asset?.height)}
+                      draggable="false"
+                      style=${styleMap({
+                        ...this.#layer(motion?.view ?? WHOLE_IMAGE, motion?.opacity ?? 1),
+                        ...(imageStatus === 'ready' ? {} : { display: 'none' }),
+                      })}
+                      @load=${this.#onImageLoad}
+                      @error=${this.#onImageError}
+                      @click=${() => this.#closeAnnotation()}
+                    />`,
+                  )
+                : nothing
+            }
+          </div>
           ${
             imageStatus !== 'ready'
               ? html`<div class="il-guide__image-fallback" role="status">
@@ -869,119 +958,123 @@ export class InteractiveLearningElement
                 </div>`
               : nothing
           }
-          <div class="il-guide__player">
-            <div class="il-guide__controls">
-              <div class="il-guide__transport">
-                <button
-                  class="il-guide__control il-guide__control--primary"
-                  type="button"
-                  aria-label=${playLabel}
-                  title=${playLabel}
-                  ?disabled=${imageStatus === 'error'}
-                  data-testid="guide-play"
-                  @click=${() => this.#togglePlayback()}
-                >
-                  ${icon(view.playbackRequested ? 'pause' : snapshot.ended ? 'replay' : 'play', 17)}
-                </button>
-                <button
-                  class="il-guide__control il-guide__control--step"
-                  type="button"
-                  aria-label=${text.previousStep}
-                  title=${text.previousStep}
-                  ?disabled=${snapshot.stepIndex <= 0}
-                  data-testid="guide-previous"
-                  @click=${() => this.goToStep(snapshot.stepIndex - 1)}
-                >
-                  ${icon('previous', 15)}
-                </button>
-                <button
-                  class="il-guide__control il-guide__control--step"
-                  type="button"
-                  aria-label=${text.nextStep}
-                  title=${text.nextStep}
-                  ?disabled=${snapshot.stepIndex >= lastStep}
-                  data-testid="guide-next"
-                  @click=${() => this.goToStep(snapshot.stepIndex + 1)}
-                >
-                  ${icon('next', 15)}
-                </button>
-              </div>
-              <div class="il-guide__timeline-row">
-                <input
-                  class="il-guide__timeline"
-                  type="range"
-                  min="0"
-                  max=${snapshot.totalMs}
-                  step=${Math.min(100, snapshot.totalMs)}
-                  .value=${live(String(snapshot.elapsedMs))}
-                  aria-label=${text.timeline}
-                  aria-valuetext=${text.timelineValue(
-                    formatTime(snapshot.elapsedMs),
-                    formatTime(snapshot.totalMs),
-                    snapshot.stepIndex + 1,
-                  )}
-                  data-testid="guide-timeline"
-                  @input=${(event: Event) =>
-                    this.seek(Number((event.target as HTMLInputElement).value))}
-                />
-              </div>
-              <span class="il-guide__time"
-                ><span>${formatTime(snapshot.elapsedMs)}</span
-                ><span class="il-guide__time-separator">/</span
-                >${formatTime(snapshot.totalMs)}</span
-              >
-              <div class="il-guide__view-controls">
-                ${
-                  this.#hasAddresses
-                    ? html`<button
+          ${
+            this.hideControls
+              ? nothing
+              : html`<div class="il-guide__player">
+                  <div class="il-guide__controls">
+                    <div class="il-guide__transport">
+                      <button
+                        class="il-guide__control il-guide__control--primary"
+                        type="button"
+                        aria-label=${playLabel}
+                        title=${playLabel}
+                        ?disabled=${imageStatus === 'error'}
+                        data-testid="guide-play"
+                        @click=${() => this.#togglePlayback()}
+                      >
+                        ${icon(view.playbackRequested ? 'pause' : snapshot.ended ? 'replay' : 'play', 17)}
+                      </button>
+                      <button
+                        class="il-guide__control il-guide__control--step"
+                        type="button"
+                        aria-label=${text.previousStep}
+                        title=${text.previousStep}
+                        ?disabled=${snapshot.stepIndex <= 0}
+                        data-testid="guide-previous"
+                        @click=${() => this.goToStep(snapshot.stepIndex - 1)}
+                      >
+                        ${icon('previous', 15)}
+                      </button>
+                      <button
+                        class="il-guide__control il-guide__control--step"
+                        type="button"
+                        aria-label=${text.nextStep}
+                        title=${text.nextStep}
+                        ?disabled=${snapshot.stepIndex >= lastStep}
+                        data-testid="guide-next"
+                        @click=${() => this.goToStep(snapshot.stepIndex + 1)}
+                      >
+                        ${icon('next', 15)}
+                      </button>
+                    </div>
+                    <div class="il-guide__timeline-row">
+                      <input
+                        class="il-guide__timeline"
+                        type="range"
+                        min="0"
+                        max=${snapshot.totalMs}
+                        step=${Math.min(100, snapshot.totalMs)}
+                        .value=${live(String(snapshot.elapsedMs))}
+                        aria-label=${text.timeline}
+                        aria-valuetext=${text.timelineValue(
+                          formatTime(snapshot.elapsedMs),
+                          formatTime(snapshot.totalMs),
+                          snapshot.stepIndex + 1,
+                        )}
+                        data-testid="guide-timeline"
+                        @input=${(event: Event) =>
+                          this.seek(Number((event.target as HTMLInputElement).value))}
+                      />
+                    </div>
+                    <span class="il-guide__time"
+                      ><span>${formatTime(snapshot.elapsedMs)}</span
+                      ><span class="il-guide__time-separator">/</span
+                      >${formatTime(snapshot.totalMs)}</span
+                    >
+                    <div class="il-guide__view-controls">
+                      ${
+                        this.#hasAddresses
+                          ? html`<button
+                              class="il-guide__control"
+                              type="button"
+                              aria-label=${text.address(this.showAddress)}
+                              title=${text.address(this.showAddress)}
+                              aria-pressed=${this.showAddress}
+                              data-testid="guide-address"
+                              @click=${() => (this.showAddress = !this.showAddress)}
+                            >
+                              ${icon('info', 17)}
+                            </button>`
+                          : nothing
+                      }
+                      <button
                         class="il-guide__control"
                         type="button"
-                        aria-label=${text.address(this.showAddress)}
-                        title=${text.address(this.showAddress)}
-                        aria-pressed=${this.showAddress}
-                        data-testid="guide-address"
-                        @click=${() => (this.showAddress = !this.showAddress)}
+                        aria-label=${text.theme(colorScheme)}
+                        title=${text.theme(colorScheme)}
+                        data-testid="guide-theme"
+                        @click=${() => this.#toggleTheme()}
                       >
-                        ${icon('info', 17)}
-                      </button>`
-                    : nothing
-                }
-                <button
-                  class="il-guide__control"
-                  type="button"
-                  aria-label=${text.theme(colorScheme)}
-                  title=${text.theme(colorScheme)}
-                  data-testid="guide-theme"
-                  @click=${() => this.#toggleTheme()}
-                >
-                  ${icon(`bulb-${colorScheme}`, 17)}
-                </button>
-                <button
-                  class="il-guide__control il-guide__speed"
-                  type="button"
-                  aria-label=${text.playbackRate(rate)}
-                  title=${text.changePlaybackRate}
-                  @click=${() => this.#cyclePlaybackRate()}
-                >
-                  ${rate}×
-                </button>
-                ${
-                  fullscreenAvailable
-                    ? html`<button
-                        class="il-guide__control"
+                        ${icon(`bulb-${colorScheme}`, 17)}
+                      </button>
+                      <button
+                        class="il-guide__control il-guide__speed"
                         type="button"
-                        aria-label=${fullscreenLabel}
-                        title=${fullscreenLabel}
-                        aria-pressed=${view.isFullscreen}
-                        @click=${() => void this.#toggleFullscreen()}
+                        aria-label=${text.playbackRate(rate)}
+                        title=${text.changePlaybackRate}
+                        @click=${() => this.#cyclePlaybackRate()}
                       >
-                        ${icon(view.isFullscreen ? 'contract' : 'expand', 16)}
-                      </button>`
-                    : nothing
-                }
-              </div>
-            </div>
-          </div>
+                        ${rate}×
+                      </button>
+                      ${
+                        fullscreenAvailable
+                          ? html`<button
+                              class="il-guide__control"
+                              type="button"
+                              aria-label=${fullscreenLabel}
+                              title=${fullscreenLabel}
+                              aria-pressed=${view.isFullscreen}
+                              @click=${() => void this.#toggleFullscreen()}
+                            >
+                              ${icon(view.isFullscreen ? 'contract' : 'expand', 16)}
+                            </button>`
+                          : nothing
+                      }
+                    </div>
+                  </div>
+                </div>`
+          }
         </div>
       </div>
       ${
@@ -993,7 +1086,9 @@ export class InteractiveLearningElement
 
   #renderOverlay(text: PlayerMessages) {
     const view = this.#view;
-    const markers = this.#markers;
+    const allMarkers = this.#markers;
+    // Markers appear once the screen is in place and the cursor has reached its point.
+    const markers = this.#motion?.markersVisible ? allMarkers : [];
     const cursor = this.#cursor();
     const active = markers.find(({ annotation }) => annotation.id === view.activeAnnotationId);
     return html`${
@@ -1003,7 +1098,7 @@ export class InteractiveLearningElement
               style=${styleMap({
                 left: `${cursor.x * 100}%`,
                 top: `${cursor.y * 100}%`,
-                '--il-cursor-offset': `${this.#cursorOffset(markers)}px`,
+                '--il-cursor-offset': `${this.#cursorOffset(allMarkers)}px`,
               })}
               aria-hidden="true"
             >
