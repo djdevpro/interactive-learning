@@ -142,16 +142,6 @@
   border-radius: var(--_radius);
   background: var(--_surface);
 }
-.il-guide__image {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: contain;
-  outline: 1px solid light-dark(rgb(0 0 0 / 10%), rgb(255 255 255 / 10%));
-  outline-offset: -1px;
-  user-select: none;
-}
 .il-guide__image-fallback {
   display: flex;
   position: absolute;
@@ -840,9 +830,14 @@
   position: absolute;
   top: 0;
   left: 0;
-  max-width: none;
-  object-fit: fill;
-  outline: none;
   transform-origin: 0 0;
   will-change: transform, opacity;
+  user-select: none;
+}
+/* The screenshot fills its layer, which has the size and the place of the part on screen. */
+.il-guide__layer > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
 }

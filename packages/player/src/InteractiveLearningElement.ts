@@ -1,7 +1,6 @@
 import { LitElement, html, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
-import { keyed } from 'lit/directives/keyed.js';
 import { live } from 'lit/directives/live.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -17,6 +16,7 @@ import { AnnotationLayout, type AnnotationMarker } from './AnnotationLayout';
 import { resolveAssetSource } from './assets';
 import { GuideSource, GuideSourceError } from './GuideSource';
 import { icon } from './icons';
+import { ImagePreloader, preloadOrder } from './ImagePreloader';
 import { resolvePlayerMessages, type PlayerMessages } from './messages';
 import type { GuideColorScheme, GuideTheme } from './theme';
 import { TimelineController, type TimelineSnapshot } from './TimelineController';
@@ -50,7 +50,6 @@ interface View {
   activeAnnotationId: string | null;
   tooltipStyle: Record<string, string>;
   imageStatus: 'loading' | 'ready' | 'error';
-  imageRequest: number;
   viewport: { width: number; height: number; controlsHeight: number };
   controlsIdle: boolean;
   reducedMotion: boolean;
@@ -140,6 +139,11 @@ export class InteractiveLearningElement
   #revision = 0;
   #reloadOnConnect = false;
   #imageSource: string | undefined;
+  /** Screenshots loaded ahead and kept across guides that share them, as for every edit in an editor. */
+  #images = new ImagePreloader(
+    (source) => this.#onImageSettle(source),
+    () => Object.assign(new Image(), { alt: '', draggable: false }),
+  );
   #animationFrame: number | undefined;
   #previousFrameTime: number | undefined;
   #idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -174,7 +178,6 @@ export class InteractiveLearningElement
       activeAnnotationId: null,
       tooltipStyle: { visibility: 'hidden' },
       imageStatus: 'loading',
-      imageRequest: 0,
       viewport: { width: 0, height: 0, controlsHeight: 48 },
       controlsIdle: false,
       reducedMotion: false,
@@ -195,6 +198,8 @@ export class InteractiveLearningElement
       this.#timeline.seek(0);
       this.#syncState();
     }
+    // From now on, the screenshots load further ahead of the timeline.
+    this.#preload();
     this.#resumeWhenReady();
   }
 
@@ -372,8 +377,11 @@ export class InteractiveLearningElement
   }
 
   get #currentAsset() {
-    const assetId = this.#currentStep?.assetId;
-    return this.#view.guide?.assets.find((asset) => asset.id === assetId);
+    return this.#asset(this.#currentStep?.assetId);
+  }
+
+  #asset(id: string | undefined) {
+    return this.#view.guide?.assets.find((asset) => asset.id === id);
   }
 
   #syncState(): void {
@@ -389,58 +397,69 @@ export class InteractiveLearningElement
     this.#syncImage();
   }
 
-  /** A new screenshot pauses the timeline until it has loaded, so no step is ever skipped. */
+  /**
+   * A screenshot that has not loaded yet pauses the timeline until it has, so no step is ever
+   * skipped. A preloaded one shows at once, and playback carries on without a stop.
+   */
   #syncImage(): void {
-    const source = resolveAssetSource(
-      this.#currentAsset?.src ?? '',
-      this.assetBaseUrl || this.#view.resolvedBase,
-    );
+    const source = this.#assetSource(this.#currentAsset?.src ?? '');
     if (source === this.#imageSource) return;
     this.#imageSource = source;
+    // A screenshot that failed, perhaps while it loaded ahead, gets another chance on screen.
+    if (this.#images.status(source) === 'error') this.#images.retry(source);
+    this.#preload();
+    if (this.#images.status(source) === 'ready') {
+      this.#patch({ imageStatus: 'ready' });
+      return;
+    }
     this.#timeline.pause();
     this.#stopAnimation();
     this.#patch({
       imageStatus: source ? 'loading' : 'error',
-      imageRequest: this.#view.imageRequest + 1,
       snapshot: this.#timeline.snapshot,
       ...(source ? {} : { playbackRequested: false }),
     });
   }
 
+  /**
+   * Requests the screenshot on screen, then the ones the viewer sees next. Until the guide starts,
+   * only the next one loads, so a page with many guides stays light.
+   */
+  #preload(): void {
+    const { guide, snapshot, hasStarted } = this.#view;
+    if (!guide || typeof Image === 'undefined') return;
+    const sources = guide.steps.map((step) =>
+      this.#assetSource(this.#asset(step.assetId)?.src ?? ''),
+    );
+    this.#images.keep(new Set(sources));
+    this.#images.request(preloadOrder(sources, snapshot.stepIndex, hasStarted ? 3 : 1));
+  }
+
   #retryImage(): void {
-    this.#imageSource = undefined;
-    this.#syncImage();
+    if (!this.#imageSource) return;
+    this.#images.retry(this.#imageSource);
+    this.#patch({ imageStatus: 'loading' });
   }
 
-  #isCurrentImage(event: Event): boolean {
-    const image = event.currentTarget;
-    return image instanceof HTMLImageElement && image.getAttribute('src') === this.#imageSource;
-  }
-
-  #onImageLoad = (event: Event): void => {
-    if (!this.#isCurrentImage(event)) return;
-    this.#patch({ imageStatus: 'ready' });
-    this.#resumeWhenReady();
-    this.#prefetchNext();
-  };
-
-  #prefetchNext(): void {
-    const { guide, snapshot } = this.#view;
-    const next = guide?.steps[snapshot.stepIndex + 1];
-    const asset = next && guide?.assets.find((candidate) => candidate.id === next.assetId);
-    if (!asset || asset.id === this.#currentAsset?.id || typeof Image === 'undefined') return;
-    new Image().src = this.#assetSource(asset.src);
+  /** A screenshot has loaded or failed: the step on screen shows it, and the next ones start. */
+  #onImageSettle(source: string): void {
+    this.#preload();
+    if (source === this.#imageSource) {
+      if (this.#images.status(source) === 'ready') {
+        this.#patch({ imageStatus: 'ready' });
+        this.#resumeWhenReady();
+      } else {
+        this.pause();
+        this.#patch({ imageStatus: 'error' });
+      }
+    }
+    // The screenshot a fade starts from may be the one that just arrived.
+    this.requestUpdate();
   }
 
   #assetSource(src: string): string {
     return resolveAssetSource(src, this.assetBaseUrl || this.#view.resolvedBase);
   }
-
-  #onImageError = (event: Event): void => {
-    if (!this.#isCurrentImage(event)) return;
-    this.pause();
-    this.#patch({ imageStatus: 'error' });
-  };
 
   #stopAnimation(): void {
     if (this.#animationFrame !== undefined) cancelAnimationFrame(this.#animationFrame);
@@ -839,9 +858,18 @@ export class InteractiveLearningElement
     const motion = this.#motion;
     // The stage takes the shape of the part of the screenshot the step shows.
     const shape = stageAspect(asset, step ? viewOf(step) : WHOLE_IMAGE);
-    const previousAsset =
-      motion?.previous &&
-      this.#view.guide?.assets.find((entry) => entry.id === motion.previous?.assetId);
+    // The preloaded elements themselves go on screen, so a step never downloads its screenshot again.
+    const screenshot =
+      imageStatus === 'ready' && this.#imageSource
+        ? this.#images.image(this.#imageSource)
+        : undefined;
+    const previousSource =
+      motion?.previous && this.#assetSource(this.#asset(motion.previous.assetId)?.src ?? '');
+    // Two assets can name one file: it then shows once, as the screenshot of the step.
+    const previousScreenshot =
+      previousSource && previousSource !== this.#imageSource
+        ? this.#images.image(previousSource)
+        : undefined;
     const showStartScreen = (!view.hasStarted || snapshot.ended) && imageStatus !== 'error';
     const playLabel = view.playbackRequested
       ? text.pause
@@ -879,37 +907,29 @@ export class InteractiveLearningElement
         >
           <div class="il-guide__layers">
             ${
-              previousAsset && motion?.previous
-                ? html`<img
+              previousScreenshot && motion?.previous
+                ? html`<div
                     class="il-guide__layer"
-                    src=${this.#assetSource(previousAsset.src)}
-                    alt=""
                     aria-hidden="true"
-                    draggable="false"
                     style=${styleMap(this.#layer(motion.previous.view, 1))}
-                  />`
+                  >
+                    ${previousScreenshot}
+                  </div>`
                 : nothing
             }
             ${
-              this.#imageSource && imageStatus !== 'error'
-                ? keyed(
-                    view.imageRequest,
-                    html`<img
-                      class="il-guide__image il-guide__layer"
-                      src=${this.#imageSource}
-                      alt=${text.imageAlt(step?.title ?? '')}
-                      width=${ifDefined(asset?.width)}
-                      height=${ifDefined(asset?.height)}
-                      draggable="false"
-                      style=${styleMap({
-                        ...this.#layer(motion?.view ?? WHOLE_IMAGE, motion?.opacity ?? 1),
-                        ...(imageStatus === 'ready' ? {} : { display: 'none' }),
-                      })}
-                      @load=${this.#onImageLoad}
-                      @error=${this.#onImageError}
-                      @click=${() => this.#closeAnnotation()}
-                    />`,
-                  )
+              screenshot
+                ? html`<div
+                    class="il-guide__layer"
+                    role="img"
+                    aria-label=${text.imageAlt(step?.title ?? '')}
+                    style=${styleMap(
+                      this.#layer(motion?.view ?? WHOLE_IMAGE, motion?.opacity ?? 1),
+                    )}
+                    @click=${() => this.#closeAnnotation()}
+                  >
+                    ${screenshot}
+                  </div>`
                 : nothing
             }
           </div>
