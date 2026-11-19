@@ -13,6 +13,7 @@ Interactive Learning Studio is the desktop app for people who make tutorials wit
 - **Play** shows the tutorial in the player, **Publish** copies it into the web project of the site, and **Export** writes a ZIP.
 - **AI agents** such as Claude Code and Codex drive the studio through its MCP server: they record the flow in its browser while you watch, write the texts and publish. Their tutorials stay in your library. **Settings › MCP** connects them in one click.
 - **Settings › Updates** installs each new version from the releases.
+- It speaks **English and French**, the language of your computer unless you choose one, and a **right click** opens the menu of what is under the pointer.
 
 Download it from the [releases](https://github.com/djdevpro/interactive-learning/releases). [Desktop app README](apps/desktop/README.md)
 

@@ -34,7 +34,8 @@ The browser lives inside the editor. Recording happens in the studio itself: eve
 - Settings: updates installed from the releases on GitHub, the connection of AI agents (MCP) with the journal of what they did, the library folder, and the shortcuts.
 - The guide format (schema 1.0.0, `packages/protocol`) is shared with every other package; new fields stay optional so older players keep working.
 - Screenshots come straight from the engine of the site view, WebView2 on Windows and WebKitGTK on Linux, so recording needs no browser permission.
-- Interface copy is in English, like the other surfaces of the project.
+- The interface speaks English and French: the language of the computer, unless Settings › General chooses one. The player of the editor follows it, and the titles the recording writes on its own too; the words the creator writes stay as written.
+- Desktop habits: a right click opens the menu of what is under the pointer, the same menu as its More button.
 - Undecided: accounts, cloud sync, collaboration, voice-over, video export.
 
 ## Brand Commitments

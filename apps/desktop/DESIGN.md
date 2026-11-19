@@ -247,7 +247,7 @@ The window never scrolls; regions scroll inside it.
 
 **Library.** Two columns: a 252px sites panel (the logo and the app name in a 52px head, sites with their themes nested below, New site and Library folder at the foot) and the open site. The site area has a sticky translucent head with the site name, its address and publish folder, search, New theme and the green New tutorial. Themes follow as sections, each a hairline-ruled header with its label dot, then a grid of tutorial thumbnails (16:10, at least 216px wide) ending with a dashed "New tutorial in" tile.
 
-**Settings.** The same two columns as the library. The left panel keeps the logo head, then a Library row to go back, the Settings caption and one 32px row per section (Updates, MCP, Library, Shortcuts), the current one in Selection Wash with a green icon, and the version at the foot. The section is a 760px column 32px from the edges: a 26px title with a 14px soft introduction, then groups, each under an 11px uppercase caption on a hairline, made of rows set off by hairlines. Settings is a screen, not a dialog, and the library reaches it from a Settings row at the very bottom of its left panel, under a hairline of its own.
+**Settings.** The same two columns as the library. The left panel keeps the logo head, then a Library row to go back, the Settings caption and one 32px row per section (General, Updates, MCP, Library, Shortcuts) 3px apart, the current one in Selection Wash with a green icon, and the version at the foot. General chooses the language on a segmented control, each language written in its own words (English, Français). The section is a 760px column 32px from the edges: a 26px title with a 14px soft introduction, then groups, each under an 11px uppercase caption on a hairline, made of rows set off by hairlines. Settings is a screen, not a dialog, and the library reaches it from a Settings row at the very bottom of its left panel, under a hairline of its own.
 
 **Spacing.** A 4px base scale (4, 8, 12, 16, 24, 32, 48). Panels pad 8px inside lists and 16px in the properties panel; the library content sits 32px from its edges. Gaps between toolbar items are 6px.
 
@@ -308,7 +308,8 @@ Buttons share one shape; the color says what the action is.
 
 ### Menus and dialogs
 
-- **Menus:** raised, 10px corners, 4px padding, Lift shadow, opened with the popover API under their button. Items are 30px rows; the item under the pointer fills Action Green. Destructive items use light red text and fill danger red on hover.
+- **Menus:** raised, 10px corners, 4px padding, Lift shadow. Items are 30px rows with their 18px icon; the item under the pointer fills Action Green. Destructive items use light red text and fill danger red on hover. Keys that do the same sit at the right of an item in 12px faint text, such as Ctrl+D. Group labels (11px, 600, faint) head a list of places, such as the themes to move a tutorial to.
+- **Right click:** every object has a menu, opened at the pointer by a right click or under the focused element by the menu key, and the same one under its More button, aligned to its right edge. One menu at a time, kept inside the window, flipping upward without room below, closed by Esc, a click elsewhere, the wheel or a change of screen. Text fields keep the menu of the system.
 - **Dialogs:** 420px wide on the panel depth, 24px padding, 10px corners, a 55% black backdrop. Used only to name something new or to confirm a deletion.
 - **Toasts:** at the bottom center, high depth, 10px corners, Lift shadow, rising 8px over 200ms.
 

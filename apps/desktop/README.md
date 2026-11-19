@@ -21,14 +21,27 @@ pnpm dev:desktop
 
 ## Settings
 
-**Settings**, at the bottom left of the library and in the More menu of the editor, has four tabs.
+**Settings**, at the bottom left of the library and in the More menu of the editor, has five tabs.
 
+- **General** chooses the language: English or French, or **Automatic**, the default, which speaks the language of the computer.
 - **Updates** shows the installed version and looks for a newer one among the releases of the repository, at each start unless you turn it off. **Download and install** fetches the installer of your system, checks its SHA-256 against the one GitHub publishes, and installs it: on Windows the installer runs on its own, closes the studio and opens it again on the new version; an AppImage replaces itself; a `.deb` or `.rpm` opens in the software installer of the system. A copy built from the source code never replaces itself.
 - **MCP** connects AI agents, as described below, and lists what they did.
 - **Library** shows the library folder and moves the studio to another one.
 - **Shortcuts** lists the keys of the editor.
 
 The settings, the address agents reach the studio at and the journal of agents live in `~/.interactive-learning`, apart from the library. `IL_STUDIO_HOME` moves that folder.
+
+## Languages
+
+The studio speaks English and French. It reads the language of the computer from the system at start, and **Settings › General** can choose one instead. Everything follows: the texts of the interface, numbers and dates (`3,5 s` and `2,1 Mo` in French), the player of the editor, the messages the Rust side sends, the journal of agents, and the titles the recording writes on its own, such as `Cliquez sur « Enregistrer »`. The words you write in a tutorial stay as you wrote them. The Windows installer also speaks the language of the system.
+
+- The texts live in `src/i18n`: `en.ts` is the reference, and `fr.ts` must give the same keys with the same `{parameters}`, which TypeScript and a test check. Plurals follow the rules of each language, through `Intl.PluralRules`, and French typography gets its no-break spaces on its own.
+- The messages of the Rust side are written in both languages with `tr!`, in `src-tauri/src/i18n.rs`.
+- What only AI agents read through the MCP server stays in English, the language of the tools.
+
+## Right click
+
+A right click opens the menu of what is under the pointer, as in any desktop software, and the menu key of the keyboard or Shift+F10 opens it on the focused element. Sites, themes, tutorials and the empty parts of the library have theirs, and so do the steps of the steps panel and of the timeline, markers, and the screenshot of a step, whose menu adds a marker where you clicked. The More buttons open the same menus. Text fields keep the menu of the system, with Cut, Copy and Paste.
 
 ## AI agents
 
@@ -80,4 +93,4 @@ On the keyboard, Space plays or pauses, ← and → change the step, Delete remo
 
 ## Self-test
 
-`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size, goes back to the library and opens three tabs of Settings. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials. On Linux without a screen, start the command with `xvfb-run -a`.
+`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size, goes back to the library, opens the menu of a tutorial with a right click, and opens four tabs of Settings. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials. On Linux without a screen, start the command with `xvfb-run -a`.
