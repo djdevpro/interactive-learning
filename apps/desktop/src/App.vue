@@ -5,15 +5,24 @@ import { createGuide } from '@interactive-learning/protocol';
 import EditorView from './components/EditorView.vue';
 import Icon from './components/Icon.vue';
 import LibraryView from './components/LibraryView.vue';
+import SettingsView from './components/SettingsView.vue';
+import { startBridge } from './agent/bridge';
+import type { AgentHost, EditorAgent } from './agent/types';
 import { library } from './library';
-import { dismiss, toast } from './ui';
+import { checkForUpdates, loadSettings, update, type SettingsTab } from './settings';
+import { dismiss, notify, toast } from './ui';
 
 // The site open in the library is remembered on this computer between two launches.
 const SITE_KEY = 'interactive-learning-desktop:site';
+/** The studio looks for a new version a moment after it starts, once the library shows. */
+const UPDATE_CHECK_DELAY_MS = 4000;
 
 const opened = ref<{ path: string; startIn: 'record' | 'edit' } | null>(null);
+const screen = ref<'library' | 'settings'>('library');
+const settingsTab = ref<SettingsTab>('updates');
 const siteId = ref<string | null>(readSite());
 const editor = ref<InstanceType<typeof EditorView> | null>(null);
+const libraryView = ref<InstanceType<typeof LibraryView> | null>(null);
 const unlisten: UnlistenFn[] = [];
 
 function readSite(): string | null {
@@ -35,7 +44,77 @@ function selectSite(id: string): void {
 
 function open(path: string, startIn: 'record' | 'edit'): void {
   selectSite(path.split('/')[0] ?? '');
+  screen.value = 'library';
   opened.value = { path, startIn };
+}
+
+/** Settings, from the library or the editor, which saves and closes first. */
+async function openSettings(tab?: SettingsTab): Promise<void> {
+  if (tab) settingsTab.value = tab;
+  if (editor.value) await editor.value.close();
+  opened.value = null;
+  screen.value = 'settings';
+}
+
+// Tutorials an agent waits to see open in the editor.
+const waiting = new Map<
+  string,
+  { resolve: (editor: EditorAgent) => void; reject: (cause: Error) => void }
+>();
+
+function onReady(): void {
+  const path = opened.value?.path;
+  const agent = editor.value?.agent;
+  if (!path || !agent) return;
+  waiting.get(path)?.resolve(agent);
+  waiting.delete(path);
+}
+
+function onClose(): void {
+  const path = opened.value?.path;
+  opened.value = null;
+  if (!path) return;
+  waiting.get(path)?.reject(new Error('This tutorial could not be opened.'));
+  waiting.delete(path);
+}
+
+/** What agents may do with the window: the same moves as the creator. */
+const host: AgentHost = {
+  editor() {
+    const agent = editor.value?.agent;
+    return opened.value && agent?.path === opened.value.path ? agent : null;
+  },
+  async open(path, mode) {
+    const current = host.editor();
+    if (current?.path === path) return current;
+    if (editor.value) await editor.value.close();
+    return new Promise<EditorAgent>((resolve, reject) => {
+      const entry = { resolve, reject };
+      waiting.set(path, entry);
+      open(path, mode);
+      setTimeout(() => {
+        if (waiting.get(path) !== entry) return;
+        waiting.delete(path);
+        reject(new Error('The editor did not open in time. Call the tool again.'));
+      }, 30_000);
+    });
+  },
+  async closeEditor() {
+    if (editor.value) await editor.value.close();
+  },
+  libraryChanged() {
+    void libraryView.value?.refresh();
+  },
+  view: () => (opened.value ? 'editor' : screen.value),
+};
+
+async function lookForUpdates(): Promise<void> {
+  await checkForUpdates();
+  if (update.phase !== 'available') return;
+  notify(`Interactive Learning Studio ${update.check?.latest?.version ?? ''} is available`, {
+    label: 'See',
+    run: () => void openSettings('updates'),
+  });
 }
 
 // Steps of the self-test the Rust side runs with IL_DESKTOP_SELFTEST.
@@ -70,11 +149,17 @@ async function selftest(): Promise<void> {
     await listen('selftest-publish', () => void editor.value?.publish()),
     await listen<string>('selftest-export', ({ payload }) => void editor.value?.exportTo(payload)),
     await listen('selftest-library-view', () => void editor.value?.close()),
+    await listen<SettingsTab>('selftest-settings', ({ payload }) => void openSettings(payload)),
   );
   await emit('selftest-ready');
 }
 
-onMounted(() => {
+onMounted(async () => {
+  unlisten.push(await startBridge(host));
+  const preferences = await loadSettings().catch(() => null);
+  if (preferences?.checkUpdates !== false) {
+    setTimeout(() => void lookForUpdates(), UPDATE_CHECK_DELAY_MS);
+  }
   if (import.meta.env.DEV) void selftest();
 });
 onUnmounted(() => {
@@ -83,14 +168,30 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <LibraryView v-if="!opened" :selected-site="siteId" @open="open" @select-site="selectSite" />
+  <SettingsView
+    v-if="!opened && screen === 'settings'"
+    :tab="settingsTab"
+    @tab="settingsTab = $event"
+    @close="screen = 'library'"
+    @open="(path) => open(path, 'edit')"
+  />
+  <LibraryView
+    v-else-if="!opened"
+    ref="libraryView"
+    :selected-site="siteId"
+    @open="open"
+    @select-site="selectSite"
+    @settings="openSettings()"
+  />
   <EditorView
     v-else
     ref="editor"
     :key="opened.path"
     :path="opened.path"
     :start-in="opened.startIn"
-    @close="opened = null"
+    @close="onClose"
+    @ready="onReady"
+    @settings="openSettings()"
   />
 
   <div

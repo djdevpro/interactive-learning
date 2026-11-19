@@ -158,6 +158,27 @@
 .folder-link:hover {
   color: var(--text);
 }
+/* Settings, at the bottom left, below a hairline of its own. */
+.plan-bottom {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+.plan-settings .badge-dot {
+  margin-left: auto;
+}
+.plan-agent {
+  justify-self: start;
+  margin: 2px var(--space-2);
+}
+.work-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  color: var(--accent-text);
+}
 
 /* The open site. */
 .gallery {

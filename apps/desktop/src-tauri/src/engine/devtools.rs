@@ -143,6 +143,44 @@ pub async fn click(view: &Webview, x: f64, y: f64) -> Result<(), String> {
     Ok(())
 }
 
+/// A real key, as the keyboard delivers it, to the element of the page that has the focus.
+pub async fn key(view: &Webview, name: &str) -> Result<(), String> {
+    let (code, virtual_key, text) = match name {
+        "Enter" => ("Enter", 13, Some("\r")),
+        "Escape" => ("Escape", 27, None),
+        "Tab" => ("Tab", 9, None),
+        "Backspace" => ("Backspace", 8, None),
+        "Delete" => ("Delete", 46, None),
+        "Space" => ("Space", 32, Some(" ")),
+        "ArrowUp" => ("ArrowUp", 38, None),
+        "ArrowDown" => ("ArrowDown", 40, None),
+        "ArrowLeft" => ("ArrowLeft", 37, None),
+        "ArrowRight" => ("ArrowRight", 39, None),
+        "Home" => ("Home", 36, None),
+        "End" => ("End", 35, None),
+        "PageUp" => ("PageUp", 33, None),
+        "PageDown" => ("PageDown", 34, None),
+        _ => return Err(format!("The key {name} is not one the studio presses.")),
+    };
+    let key = if name == "Space" { " " } else { name };
+    let mut down = serde_json::json!({
+        "type": if text.is_some() { "keyDown" } else { "rawKeyDown" },
+        "key": key, "code": code,
+        "windowsVirtualKeyCode": virtual_key, "nativeVirtualKeyCode": virtual_key,
+    });
+    if let Some(text) = text {
+        down["text"] = text.into();
+        down["unmodifiedText"] = text.into();
+    }
+    call(view, "Input.dispatchKeyEvent", down.to_string()).await?;
+    let up = serde_json::json!({
+        "type": "keyUp", "key": key, "code": code,
+        "windowsVirtualKeyCode": virtual_key, "nativeVirtualKeyCode": virtual_key,
+    });
+    call(view, "Input.dispatchKeyEvent", up.to_string()).await?;
+    Ok(())
+}
+
 /// A screenshot drawn by the engine, which keeps a page beyond the window by itself.
 pub async fn screenshot(view: &Webview, shot: Shot) -> Result<String, String> {
     let (format, params) = match shot {

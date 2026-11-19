@@ -1,13 +1,32 @@
 ---
 name: interactive-learning
-description: Build or update an Interactive Learning guide, a step-by-step walkthrough of a web application made of real screenshots, a cursor and numbered markers. Use it when the user asks to document, record or explain a flow of a website with screenshots. Do not use it to write end-to-end tests.
+description: Build or update an Interactive Learning guide, a step-by-step walkthrough of a web application made of real screenshots, a cursor and numbered markers. Use it when the user asks to document, record or explain a flow of a website with screenshots, or to make a tutorial in Interactive Learning Studio. Do not use it to write end-to-end tests.
 ---
 
 # Interactive Learning guides
 
-A guide is a `guide.json` file plus an `assets` folder of screenshots. You drive the browser and save the screenshots. The `interactive-learning` command line tool turns them into a guide, and the `<interactive-learning>` player shows it. You never write test scripts for this.
+A guide, which the studio calls a tutorial, is a `guide.json` file plus an `assets` folder of screenshots, played by the `<interactive-learning>` player. There are two ways to make one. Prefer the first.
 
-## 1. Check the tools
+- **Interactive Learning Studio, through its MCP server.** The desktop app of the user records the flow in its own browser, keeps the tutorial in the user's library and publishes it to the project. The user watches in its window, can take over at any moment, and comes back to the tutorial later to refine it.
+- **The command line**, when the studio is not connected. You drive a browser, and the `interactive-learning` tool writes the guide into the public folder of the project.
+
+## 1. Use the studio when it is connected
+
+The studio is connected when you have the tools of its MCP server, `interactive-learning`, such as `list_library`, `create_tutorial`, `look` and `click` (in Claude Code, `mcp__interactive-learning__look`). The studio starts by itself when a tool needs it. Its server instructions give the whole workflow; here it is in short.
+
+1. Call `list_library`. Reuse the site whose address matches the application, or call `create_site`. When the user works in the project of the site, set `publish_to` to the folder that serves guides, such as `<project>/public/guides`. Section 4 tells how to find that folder.
+2. Call `create_tutorial` with a short title that starts with a verb. Its editor opens on the site, in the browser of the studio.
+3. Call `open_page` on the first page of the flow. If the flow needs a signed-in user, ask the user to sign in in the browser of the studio, and wait for them. Never type real credentials.
+4. Call `start_recording`, then repeat: `look`, read its screenshot and its elements, then `click` a ref. Each click becomes a step with the screen just before it, the cursor and a marker named after what was clicked. `type_text` fills a field with demo data, and the next click shows it filled. `capture_step` adds a screen without a click, such as the result at the end, with a marker on an element.
+5. Call `stop_recording`, then `read_tutorial`. Give each step a title that starts with a verb and one sentence of text with `update_step`, and each marker a short name and what it does with `update_marker`. Check doubtful steps with `show_step`. Delete a step that repeats the previous screen with nothing new.
+6. Call `publish_tutorial` when the site has a publish folder. The tutorial lands in `<publish_to>/<tutorial>/guide.json`, which the page of section 6 shows.
+7. Report the tutorial with its site, theme and title, its steps, where it was published, and anything you could not capture. Tell the user it stays in their library, where they can open it, refine it and publish it again.
+
+To change a tutorial of the studio, call `list_library` and `open_tutorial`, then `read_tutorial`, and record more steps or edit them the same way. Never write its `guide.json` yourself: go through the tools, so the studio shows each change and can undo it.
+
+If the user has the studio but its tools are missing, tell them to open Settings in the studio, then MCP, to click Connect for their agent and to start a new session. Meanwhile, or when they do not use the studio, continue with the command line below.
+
+## 2. Check the command line tool
 
 The tool comes from the npm package `@interactive-learning/recorder`, which is usually not installed. Run it with npx, which downloads it on first use. It needs Node.js 22.18 or later.
 
@@ -17,7 +36,7 @@ npx -y @interactive-learning/recorder doctor
 
 If `doctor` fails, stop and report the error. Below, `il` stands for `npx -y @interactive-learning/recorder`.
 
-## 2. Choose the browser
+## 3. Choose the browser
 
 Use the first of these that you have. Each screenshot must reach you as a file, because `capture add` imports files. An image that only appears in the conversation cannot be imported.
 
@@ -34,7 +53,7 @@ npx playwright install chromium
 
 With Playwright, drive the flow from a short Node script kept outside the project. Keep a fixed viewport such as 1280 by 800. Before each action, take `page.screenshot({ path, fullPage: false })`, read the click target with `locator.boundingBox()` and the address with `page.url()`. This script only drives the browser: never write it as a test and never add it to the project.
 
-## 3. Put the guide in the public folder of the site
+## 4. Put the guide in the public folder of the site
 
 The site serves the guide as static files. Find the folder it serves as is at its root, from the stack of the project.
 
@@ -50,7 +69,7 @@ il create --title "Register a trainee" --out public/guides/register-trainee/guid
 
 Every screenshot you import is copied into `public/guides/register-trainee/assets/`, and `guide.json` refers to it with a relative path. The paths are therefore right without any other setting. Never embed images in the JSON as base64.
 
-## 4. Add one step per screen
+## 5. Add one step per screen
 
 Save your raw screenshots in a temporary folder outside the public folder, because `capture add` copies them. Repeat for every step of the flow.
 
@@ -69,7 +88,7 @@ il capture add --guide public/guides/register-trainee/guide.json --image /tmp/ca
 il annotate --guide public/guides/register-trainee/guide.json --step STEP_ID --x 0.82 --y 0.18 --title "Add" --body "Opens the sign-up form."
 ```
 
-Follow these rules.
+Follow these rules, with the studio too.
 
 - Never change the page, its DOM or its styles to get a nicer screenshot, and never invent an image.
 - A position always belongs to the screenshot of the same step. Never reuse a click position on the next page.
@@ -77,7 +96,7 @@ Follow these rules.
 - Keep titles short and start them with a verb. Put details in markers.
 - A step lasts 2500 ms. Use `--duration-ms 3000` to `3500` for dense screens.
 
-## 5. Validate and show the guide
+## 6. Validate and show the guide
 
 ```sh
 il validate --guide public/guides/register-trainee/guide.json
@@ -106,9 +125,9 @@ If the project does not use the player yet, check the guide without adding a dep
 
 Play the guide once. Check that each cursor points at the right element, that markers sit on the right spot and that no sensitive data is visible. Fix and recapture what is wrong, then report the guide path and anything you could not capture.
 
-## 6. Offer the studio
+## 7. Offer the web studio
 
-End by offering to open the guide in the studio, where the user can place markers, rewrite texts and replace screenshots by hand. If they accept, start it in the background, because it keeps running until it is stopped.
+After the command line, end by offering to open the guide in the web studio, where the user can place markers, rewrite texts and replace screenshots by hand. If they accept, start it in the background, because it keeps running until it is stopped.
 
 ```sh
 il studio --guide public/guides/register-trainee/guide.json
@@ -118,9 +137,10 @@ It opens their browser and prints its address; give them that address too. Each 
 
 ## Update an existing guide
 
+- A tutorial of the studio changes through its tools, as section 1 says.
 - To replace a screenshot and keep its texts, run `il capture replace --guide public/guides/register-trainee/guide.json --step STEP_ID --image /tmp/captures/new.png`. It removes the cursor of that step. Check the markers, and to show the click again add `"cursor": { "x": 0.82, "y": 0.18, "action": "click" }` to the step in `guide.json`.
 - To change texts, edit `guide.json`, then run `il validate`.
-- After an update, offer the studio again, as in section 6.
+- After an update, offer the web studio again, as in section 7.
 - When the user wants to refine the guide in the browser extension, run `il export --guide public/guides/register-trainee/guide.json --out register-trainee.zip --zip` and tell them to import that ZIP from the extension panel.
 - To copy a guide somewhere else, `il export --guide <guide.json> --out <new folder>` writes `guide.json` and its `assets` folder.
 - `il --help` lists every command.

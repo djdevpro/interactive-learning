@@ -1,9 +1,9 @@
 //! `IL_DESKTOP_SELFTEST=<folder>` records a walkthrough without a person and checks every screen
 //! of the studio. It creates a site, two themes and a tutorial in a library of its own, records
 //! a test page (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, follows a link, stops,
-//! edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial and goes back to
-//! the library, saving a PNG of each screen in that folder, then quits. Its profile and its
-//! library live in that folder, away from real tutorials.
+//! edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, goes back to
+//! the library and opens Settings, saving a PNG of each screen in that folder, then quits. Its
+//! profile, its library and its settings live in that folder, away from real tutorials.
 
 use std::io::Write;
 use std::time::Duration;
@@ -102,6 +102,12 @@ pub fn run(app: AppHandle, folder: String) {
         let _ = app.emit("selftest-library-view", ());
         pause(2_500).await;
         report.push(save_view(&app, STUDIO, &format!("{folder}/library.png")).await);
+        // Settings, from the button at the bottom left of the library.
+        for tab in ["updates", "mcp", "library"] {
+            let _ = app.emit("selftest-settings", tab);
+            pause(if tab == "updates" { 4_000 } else { 1_500 }).await;
+            report.push(save_view(&app, STUDIO, &format!("{folder}/settings-{tab}.png")).await);
+        }
         let tutorial = format!("{folder}/library/Demo workspace/Billing/change-the-payment-method");
         report.push(format!(
             "files guide {} published {} zip {}",

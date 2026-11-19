@@ -16,6 +16,8 @@ import Logo from './Logo.vue';
 import MediaPanel from './MediaPanel.vue';
 import StepCanvas from './StepCanvas.vue';
 import Timeline from './Timeline.vue';
+import { presence } from '../agent/bridge';
+import type { EditorAgent } from '../agent/types';
 import { createHistory } from '../history';
 import { canRecord, NO_RECORDING, revealLabel } from '../platform';
 import { createRecorder } from '../recorder';
@@ -54,7 +56,7 @@ import { notify, warn } from '../ui';
 export type Stage = 'canvas' | 'player' | 'recorder';
 
 const props = defineProps<{ path: string; startIn: 'record' | 'edit' }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; ready: []; settings: [] }>();
 
 const history = createHistory((guide) => library.writeTutorial(props.path, guide));
 const guide = history.guide;
@@ -116,12 +118,7 @@ onMounted(async () => {
     emit('close');
     return;
   }
-  const parts = partsOf(props.path);
-  const sites = await library.scan().catch(() => []);
-  site.value = sites.find((entry) => entry.id === parts.site) ?? null;
-  theme.value = site.value?.themes.find((entry) => entry.id === parts.theme) ?? null;
-  publishedAt.value =
-    theme.value?.tutorials.find((entry) => entry.path === props.path)?.publishedAt ?? null;
+  await readPlace();
   selectedId.value = steps.value[0]?.id ?? null;
   unlisten.push(
     await listen<{ url: string; loading: boolean }>('site-page', ({ payload }) => {
@@ -141,7 +138,18 @@ onMounted(async () => {
   await nextTick();
   if (siteSlot.value) resizeObserver.observe(siteSlot.value);
   void placeSite();
+  emit('ready');
 });
+
+/** The site and theme of the tutorial, and when it was published, as the library holds them. */
+async function readPlace(): Promise<void> {
+  const parts = partsOf(props.path);
+  const sites = await library.scan().catch(() => []);
+  site.value = sites.find((entry) => entry.id === parts.site) ?? null;
+  theme.value = site.value?.themes.find((entry) => entry.id === parts.theme) ?? null;
+  publishedAt.value =
+    theme.value?.tutorials.find((entry) => entry.path === props.path)?.publishedAt ?? null;
+}
 
 onBeforeUnmount(() => {
   for (const stop of unlisten) stop();
@@ -189,13 +197,19 @@ watch([stage, hasPage], async () => {
   void placeSite();
 });
 
+/** Opens an address in the browser, or says why it cannot. */
+async function navigate(target: string): Promise<string> {
+  const url = await invoke<string>('site_navigate', { url: target });
+  address.value = url;
+  page.value = { url, loading: true };
+  (document.getElementById('address') as HTMLInputElement | null)?.blur();
+  return url;
+}
+
 async function go(target = address.value): Promise<void> {
   if (!target.trim()) return;
   try {
-    const url = await invoke<string>('site_navigate', { url: target });
-    address.value = url;
-    page.value = { url, loading: true };
-    (document.getElementById('address') as HTMLInputElement | null)?.blur();
+    await navigate(target);
   } catch (cause) {
     warn(cause, 'This address could not be opened.');
   }
@@ -533,18 +547,31 @@ function redo(): void {
 
 // Publishing and export.
 
-async function publish(): Promise<void> {
-  if (!site.value?.publishTo) return;
+/** Publishes into the project folder of the site and gives that folder back. */
+async function publishNow(): Promise<string> {
+  if (!site.value?.publishTo) {
+    throw new Error(
+      'This site publishes to no folder yet. Link the folder of its web project first, such as public/guides.',
+    );
+  }
   busy.value = true;
   try {
     await history.flush();
     const destination = await library.publish(props.path);
     publishedAt.value = new Date().toISOString();
     notify('Published', { label: 'Show', run: () => void library.reveal(destination, true) });
-  } catch (cause) {
-    warn(cause, 'The tutorial could not be published.');
+    return destination;
   } finally {
     busy.value = false;
+  }
+}
+
+async function publish(): Promise<void> {
+  if (!site.value?.publishTo) return;
+  try {
+    await publishNow();
+  } catch (cause) {
+    warn(cause, 'The tutorial could not be published.');
   }
 }
 
@@ -558,11 +585,15 @@ async function exportZip(): Promise<void> {
 }
 
 /** `guide.json` and its screenshots in one archive, the one the extension and the CLI open. */
+async function exportNow(target: string): Promise<void> {
+  await history.flush();
+  await library.exportZip(props.path, target);
+  notify('ZIP saved', { label: 'Show', run: () => void library.reveal(target, true) });
+}
+
 async function exportTo(target: string): Promise<void> {
   try {
-    await history.flush();
-    await library.exportZip(props.path, target);
-    notify('ZIP saved', { label: 'Show', run: () => void library.reveal(target, true) });
+    await exportNow(target);
   } catch (cause) {
     warn(cause, 'The export failed.');
   }
@@ -626,6 +657,49 @@ function onKey(event: KeyboardEvent): void {
   }
 }
 
+/** Plays from a moment, in the player of the viewer. */
+function playFrom(ms: number): void {
+  if (stage.value === 'player' && player.value) {
+    player.value.seek(ms);
+    player.value.play();
+    return;
+  }
+  playhead.value = ms;
+  play();
+}
+
+/** What an AI agent does in this editor goes through the same changes as the creator's. */
+const agent: EditorAgent = {
+  path: props.path,
+  guide: () => guide.value,
+  site: () => site.value,
+  theme: () => theme.value,
+  change,
+  select,
+  show,
+  stage: () => stage.value,
+  navigate,
+  page: () => page.value,
+  recording: () => recording.value,
+  async record(on) {
+    if (on !== recording.value) await recordNow();
+  },
+  renew: () => recorder.renew(),
+  idle: () => recorder.idle(),
+  capture: () => captureSite(),
+  undo() {
+    const label = history.undo();
+    if (!steps.value.some((step) => step.id === selectedId.value))
+      select(steps.value[0]?.id ?? null);
+    return label;
+  },
+  flush: () => history.flush(),
+  publish: publishNow,
+  exportTo: exportNow,
+  play: playFrom,
+  refresh: readPlace,
+};
+
 defineExpose({
   stage,
   toggleRecording,
@@ -640,6 +714,7 @@ defineExpose({
   close,
   captureNow,
   openRecorder,
+  agent,
 });
 const total = computed(() => (guide.value ? stepStarts(guide.value).total : 0));
 
@@ -718,6 +793,14 @@ function onWholePage(): void {
         />
       </nav>
       <span class="bar-spacer"></span>
+      <span
+        v-if="presence"
+        class="agent-badge"
+        role="status"
+        :title="`${presence.agent} is driving the studio. You can take over at any moment.`"
+      >
+        <Icon name="spark" :size="13" />{{ presence.agent }}
+      </span>
       <span class="save-state" :data-state="history.saving.value" role="status">
         <Icon v-if="history.saving.value === 'saved'" name="check" :size="14" />
         {{
@@ -783,6 +866,8 @@ function onWholePage(): void {
         <button type="button" @click="library.reveal(props.path)">
           <Icon name="folder" />{{ revealLabel }}
         </button>
+        <hr />
+        <button type="button" @click="emit('settings')"><Icon name="settings" />Settings</button>
       </div>
     </header>
 

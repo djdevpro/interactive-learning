@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter};
 #[cfg(windows)]
 mod devtools;
 #[cfg(windows)]
-pub use devtools::{click, evaluate, observe, screenshot};
+pub use devtools::{click, evaluate, key, observe, screenshot};
 
 #[cfg(target_os = "linux")]
 mod webkit;

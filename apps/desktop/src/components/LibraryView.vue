@@ -8,19 +8,23 @@ import {
   THEME_COLORS,
   library,
   timecode,
+  tutorialStatus,
   tutorialUrl,
   type SiteEntry,
   type ThemeColor,
   type ThemeEntry,
   type TutorialEntry,
 } from '../library';
+import { presence } from '../agent/bridge';
 import { bin, canRecord, revealLabel } from '../platform';
+import { update } from '../settings';
 import { notify, since, warn } from '../ui';
 
 const props = defineProps<{ selectedSite: string | null }>();
 const emit = defineEmits<{
   open: [path: string, mode: 'record' | 'edit'];
   'select-site': [id: string];
+  settings: [];
 }>();
 
 const sites = ref<SiteEntry[]>([]);
@@ -85,8 +89,9 @@ onMounted(async () => {
 defineExpose({ refresh });
 
 function status(tutorial: TutorialEntry): { label: string; tone: 'done' | 'changed' | 'draft' } {
-  if (!tutorial.publishedAt) return { label: 'Draft', tone: 'draft' };
-  return tutorial.publishedAt >= tutorial.updatedAt
+  const state = tutorialStatus(tutorial);
+  if (state === 'draft') return { label: 'Draft', tone: 'draft' };
+  return state === 'published'
     ? { label: 'Published', tone: 'done' }
     : { label: 'Changed since publishing', tone: 'changed' };
 }
@@ -340,6 +345,30 @@ function selectSite(id: string): void {
           <span>Library folder</span>
         </button>
       </footer>
+      <div class="plan-bottom">
+        <span
+          v-if="presence"
+          class="agent-badge plan-agent"
+          role="status"
+          :title="`${presence.agent} is driving the studio`"
+        >
+          <Icon name="spark" :size="13" />{{ presence.agent }} is working
+        </span>
+        <button
+          type="button"
+          class="button quiet plan-add plan-settings"
+          title="Updates, MCP, library and shortcuts"
+          @click="emit('settings')"
+        >
+          <Icon name="settings" />
+          Settings
+          <span
+            v-if="update.phase === 'available'"
+            class="badge-dot"
+            aria-label="A new version is available"
+          ></span>
+        </button>
+      </div>
     </aside>
 
     <main ref="gallery" class="gallery">
@@ -500,6 +529,12 @@ function selectSite(id: string): void {
                 <p class="work-facts tabular">
                   {{ tutorial.steps === 1 ? '1 step' : `${tutorial.steps} steps` }} ·
                   {{ timecode(tutorial.durationMs) }}
+                  <span
+                    v-if="tutorial.agent"
+                    class="work-agent"
+                    :title="`Made by ${tutorial.agent}`"
+                    ><Icon name="spark" :size="12" />{{ tutorial.agent }}</span
+                  >
                 </p>
                 <p class="work-status" :data-tone="status(tutorial).tone">
                   <span class="dot" aria-hidden="true"></span>{{ status(tutorial).label }}

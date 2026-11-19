@@ -4,6 +4,7 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/library.css';
 import './styles/editor.css';
+import './styles/settings.css';
 import App from './App.vue';
 
 createApp(App).mount('#app');

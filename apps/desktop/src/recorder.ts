@@ -108,6 +108,21 @@ export function createRecorder(options: RecorderOptions) {
         void serial(() => onClick(observation)).catch(options.fail);
     },
 
+    /**
+     * A new picture of the page now, after any capture on its way, for a click that must show the
+     * screen as it is, such as the click of an agent right after it typed.
+     */
+    async renew(): Promise<void> {
+      if (!active.value) return;
+      while (capturing) await capturing;
+      await refresh();
+    },
+
+    /** Resolves once the clicks seen so far are steps of the guide. */
+    idle(): Promise<void> {
+      return queue.then(() => undefined);
+    },
+
     /** A capture by hand, recording or not. While recording, it also becomes the new picture. */
     captureNow(): Promise<void> {
       return serial(async () => {

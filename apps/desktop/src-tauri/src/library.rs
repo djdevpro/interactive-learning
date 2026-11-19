@@ -15,13 +15,15 @@ use tauri::{
 
 use crate::STUDIO;
 
-/// Folder of the library, `Documents/Interactive Learning` unless a self-test chose another.
+/// Folder of the library, `Documents/Interactive Learning` unless Settings or a self-test chose
+/// another.
 pub struct Root(pub Mutex<PathBuf>);
 
 const SITE_FILE: &str = "site.json";
 const THEME_FILE: &str = "theme.json";
 const GUIDE_FILE: &str = "guide.json";
-/// What the studio remembers about a tutorial beside the guide: when it was last published.
+/// What the studio remembers about a tutorial beside the guide: when it was last published, and
+/// the AI agent that made it.
 const STUDIO_FILE: &str = ".studio.json";
 
 #[derive(Serialize)]
@@ -54,6 +56,8 @@ pub struct Tutorial {
     duration_ms: u64,
     updated_at: String,
     published_at: Option<String>,
+    /// The AI agent that made it, such as Claude Code, when an agent did.
+    agent: Option<String>,
     /// First screenshot, relative to the tutorial folder, and the part of it the first step shows.
     cover: Option<String>,
     cover_viewport: Option<Value>,
@@ -67,11 +71,18 @@ pub fn root(app: &AppHandle) -> PathBuf {
         .unwrap_or_default()
 }
 
-pub fn default_root(app: &AppHandle) -> PathBuf {
-    app.path()
-        .document_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("Interactive Learning")
+/// Changes what the studio remembers beside a tutorial, and keeps the rest.
+fn remember(folder: &Path, fields: Value) -> Result<(), String> {
+    let mut memory = read_json(&folder.join(STUDIO_FILE));
+    if !memory.is_object() {
+        memory = json!({});
+    }
+    if let (Some(memory), Some(fields)) = (memory.as_object_mut(), fields.as_object()) {
+        for (key, value) in fields {
+            memory.insert(key.clone(), value.clone());
+        }
+    }
+    write_json(&folder.join(STUDIO_FILE), &memory)
 }
 
 /// A path of the library from its parts, refused when it would leave the library.
@@ -143,6 +154,7 @@ fn tutorial(site: &str, theme: &str, folder: &Path) -> Option<Tutorial> {
     }
     let steps = guide["steps"].as_array().cloned().unwrap_or_default();
     let first = steps.first();
+    let memory = read_json(&folder.join(STUDIO_FILE));
     let cover = first.and_then(|step| {
         let asset = step["assetId"].as_str()?;
         guide["assets"]
@@ -162,9 +174,8 @@ fn tutorial(site: &str, theme: &str, folder: &Path) -> Option<Tutorial> {
             .map(|step| step["durationMs"].as_u64().unwrap_or(0))
             .sum(),
         updated_at: text(&guide, "updatedAt"),
-        published_at: read_json(&folder.join(STUDIO_FILE))["publishedAt"]
-            .as_str()
-            .map(str::to_string),
+        published_at: memory["publishedAt"].as_str().map(str::to_string),
+        agent: memory["agent"].as_str().map(str::to_string),
         cover,
         cover_viewport: first.and_then(|step| step.get("viewport").cloned()),
     })
@@ -367,7 +378,8 @@ pub fn theme_save(
     Ok(name_of(&folder))
 }
 
-/// A new tutorial folder in a theme, named after its title, holding the guide given.
+/// A new tutorial folder in a theme, named after its title, holding the guide given. `agent` names
+/// the AI agent that makes it, when one does.
 #[tauri::command]
 pub fn tutorial_create(
     app: AppHandle,
@@ -375,12 +387,19 @@ pub fn tutorial_create(
     theme: String,
     title: String,
     guide: String,
+    agent: Option<String>,
 ) -> Result<String, String> {
     let parent = inside(&root(&app), &format!("{site}/{theme}"))?;
+    if !parent.is_dir() {
+        return Err("This theme is not in the library.".to_string());
+    }
     let name = unique(&parent, &slug(&title), "-");
     let folder = parent.join(&name);
     std::fs::create_dir_all(folder.join("assets")).map_err(|error| error.to_string())?;
     write_atomic(&folder.join(GUIDE_FILE), guide.as_bytes())?;
+    if let Some(agent) = agent.filter(|agent| !agent.trim().is_empty()) {
+        remember(&folder, json!({ "agent": agent.trim(), "agentAt": now() }))?;
+    }
     Ok(format!("{site}/{theme}/{name}"))
 }
 
@@ -523,9 +542,9 @@ pub fn tutorial_publish(app: AppHandle, path: String) -> Result<String, String> 
     }
     let _ = std::fs::remove_dir_all(&destination);
     std::fs::rename(&staging, &destination).map_err(|error| error.to_string())?;
-    write_json(
-        &folder.join(STUDIO_FILE),
-        &json!({ "publishedAt": now(), "publishedTo": destination.to_string_lossy() }),
+    remember(
+        &folder,
+        json!({ "publishedAt": now(), "publishedTo": destination.to_string_lossy() }),
     )?;
     Ok(destination.to_string_lossy().to_string())
 }
@@ -718,7 +737,7 @@ fn webp_size(bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
-fn now() -> String {
+pub(crate) fn now() -> String {
     // Seconds are enough to order publications; the studio formats the date itself.
     let seconds = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

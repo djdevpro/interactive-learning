@@ -1,11 +1,20 @@
 //! Desktop studio: one window holds the studio interface and, beside it, the site being recorded.
 //! The site runs in its own webview without any access to the studio commands.
+//!
+//! The same program is the MCP server of the studio with `--mcp` (`mcp.rs`): AI agents drive the
+//! running studio through it, by the local address of `control.rs`.
 
+mod control;
 mod engine;
+mod home;
 mod library;
+mod mcp;
 #[cfg(target_os = "linux")]
 mod overlay;
+mod page;
 mod selftest;
+mod setup;
+mod updater;
 
 use engine::Shot;
 use serde::Serialize;
@@ -15,6 +24,12 @@ use tauri::{
     window::WindowBuilder,
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Webview, WebviewUrl,
 };
+
+/// `--mcp`: the MCP server on standard input and output, without any window.
+pub fn mcp_server() -> i32 {
+    home::init(None);
+    mcp::serve()
+}
 
 pub(crate) const STUDIO: &str = "studio";
 pub(crate) const SITE: &str = "site";
@@ -247,6 +262,76 @@ fn write_file(request: Request<'_>) -> Result<(), String> {
     std::fs::write(&path, bytes).map_err(|error| format!("{path}: {error}"))
 }
 
+#[tauri::command]
+fn settings_read() -> home::Settings {
+    home::settings()
+}
+
+/// Saves the settings. A new library folder takes effect at once.
+#[tauri::command]
+fn settings_write(app: AppHandle, settings: home::Settings) -> Result<home::Settings, String> {
+    let before = home::settings();
+    home::save_settings(&settings)?;
+    if before.library != settings.library && std::env::var_os("IL_DESKTOP_SELFTEST").is_none() {
+        let root = home::library();
+        std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
+        *app.state::<library::Root>()
+            .0
+            .lock()
+            .map_err(|error| error.to_string())? = root;
+    }
+    Ok(settings)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppInfo {
+    version: String,
+    exe: String,
+    install: updater::Install,
+    library: String,
+    default_library: String,
+    home: String,
+    releases: String,
+}
+
+#[tauri::command]
+fn app_info(app: AppHandle) -> AppInfo {
+    AppInfo {
+        version: app.package_info().version.to_string(),
+        exe: std::env::current_exe()
+            .map(|exe| exe.to_string_lossy().to_string())
+            .unwrap_or_default(),
+        install: updater::install_kind(),
+        library: library::root(&app).to_string_lossy().to_string(),
+        default_library: home::default_library().to_string_lossy().to_string(),
+        home: home::dir().to_string_lossy().to_string(),
+        releases: format!("https://github.com/{}/releases", updater::REPO),
+    }
+}
+
+/// Opens an address of the web in the browser of the system, such as the page of a release.
+#[tauri::command]
+fn open_external(url: String) -> Result<(), String> {
+    let target = tauri::Url::parse(&url).map_err(|_| format!("{url} is not a web address."))?;
+    if target.scheme() != "https" {
+        return Err("Only https addresses open in the browser.".to_string());
+    }
+    #[cfg(windows)]
+    let opened = {
+        use std::os::windows::process::CommandExt;
+        std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", target.as_str()])
+            .creation_flags(0x0800_0000)
+            .spawn()
+    };
+    #[cfg(not(windows))]
+    let opened = std::process::Command::new("xdg-open")
+        .arg(target.as_str())
+        .spawn();
+    opened.map(|_| ()).map_err(|error| error.to_string())
+}
+
 pub(crate) fn percent_decode(text: &str) -> Result<String, String> {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
@@ -266,8 +351,16 @@ pub(crate) fn percent_decode(text: &str) -> Result<String, String> {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let test_folder = std::env::var("IL_DESKTOP_SELFTEST").ok();
+    // A self-test keeps its own settings and address, away from the creator's studio.
+    home::init(
+        test_folder
+            .as_ref()
+            .map(|folder| std::path::PathBuf::from(folder).join("home")),
+    );
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(updater::Updater::default())
         .register_asynchronous_uri_scheme_protocol("library", |context, request, responder| {
             let app = context.app_handle().clone();
             let label = context.webview_label().to_string();
@@ -279,6 +372,10 @@ pub fn run() {
             site_bounds,
             site_capture,
             write_file,
+            settings_read,
+            settings_write,
+            app_info,
+            open_external,
             library::library_root,
             library::library_scan,
             library::library_delete,
@@ -293,9 +390,27 @@ pub fn run() {
             library::tutorial_duplicate,
             library::tutorial_prune,
             library::tutorial_publish,
-            library::tutorial_export
+            library::tutorial_export,
+            control::agent_ready,
+            control::agent_reply,
+            control::agent_activity,
+            control::agent_listening,
+            page::site_look,
+            page::site_target,
+            page::site_click,
+            page::site_type,
+            page::site_key,
+            page::site_scroll,
+            page::site_where,
+            page::studio_snapshot,
+            setup::agents_status,
+            setup::agents_connect,
+            setup::agents_install_skill,
+            updater::update_check,
+            updater::update_download,
+            updater::update_install
         ])
-        .setup(|app| {
+        .setup(move |app| {
             let window = WindowBuilder::new(app, "main")
                 .title("Interactive Learning Studio")
                 .inner_size(1440.0, 900.0)
@@ -304,13 +419,17 @@ pub fn run() {
             let size = window
                 .inner_size()?
                 .to_logical::<f64>(window.scale_factor()?);
-            let test_folder = std::env::var("IL_DESKTOP_SELFTEST").ok();
             // A self-test keeps its own library, away from the creator's tutorials.
             let root = match &test_folder {
                 Some(folder) => std::path::PathBuf::from(folder).join("library"),
-                None => library::default_root(app.handle()),
+                None => home::library(),
             };
             app.manage(library::Root(std::sync::Mutex::new(root)));
+            // Agents reach the studio from now on; without the address, it works as before.
+            if let Err(error) = control::start(app.handle()) {
+                eprintln!("Agents cannot reach the studio: {error}");
+            }
+            updater::clean_up();
             // Both views share one profile; a self-test gets its own.
             let profile = |builder: WebviewBuilder<tauri::Wry>| match &test_folder {
                 Some(folder) => builder.data_directory(format!("{folder}/profile").into()),
@@ -346,11 +465,16 @@ pub fn run() {
             engine::observe(&site, app.handle().clone())?;
             #[cfg(target_os = "linux")]
             overlay::stack(&site)?;
-            if let Some(folder) = test_folder {
+            if let Some(folder) = test_folder.clone() {
                 selftest::run(app.handle().clone(), folder);
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("the studio could not start");
+    app.run(|app, event| {
+        if let tauri::RunEvent::Exit = event {
+            control::forget(app);
+        }
+    });
 }

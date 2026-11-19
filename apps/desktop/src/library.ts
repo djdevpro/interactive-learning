@@ -14,6 +14,8 @@ export interface TutorialEntry {
   durationMs: number;
   updatedAt: string;
   publishedAt: string | null;
+  /** The AI agent that made it, such as Claude Code, when an agent did. */
+  agent: string | null;
   /** First screenshot, relative to the tutorial folder, and the part its first step shows. */
   cover: string | null;
   coverViewport: GuideViewport | null;
@@ -84,12 +86,14 @@ export const library = {
       color: theme.color,
     }),
 
-  createTutorial: (site: string, theme: string, guide: GuideDocument) =>
+  /** A new tutorial; `agent` names the AI agent that makes it, when one does. */
+  createTutorial: (site: string, theme: string, guide: GuideDocument, agent?: string) =>
     invoke<string>('tutorial_create', {
       site,
       theme,
       title: guide.title,
       guide: serialize(guide),
+      agent: agent ?? null,
     }),
 
   async readTutorial(path: string): Promise<GuideDocument> {
@@ -131,6 +135,12 @@ export const library = {
 
 function serialize(guide: GuideDocument): string {
   return `${JSON.stringify(guide, null, 2)}\n`;
+}
+
+/** Whether a tutorial waits to be published, is published, or changed since it was. */
+export function tutorialStatus(tutorial: TutorialEntry): 'draft' | 'published' | 'changed' {
+  if (!tutorial.publishedAt) return 'draft';
+  return tutorial.publishedAt >= tutorial.updatedAt ? 'published' : 'changed';
 }
 
 /** Where a tutorial sits: its site and theme folders, and its own. */

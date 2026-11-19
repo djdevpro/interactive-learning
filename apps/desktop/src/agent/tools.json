@@ -1,0 +1,416 @@
+[
+  {
+    "name": "studio_status",
+    "title": "Studio status",
+    "description": "What the studio shows now: its version, the library folder, the tutorial open in the editor with its number of steps, whether it is recording, and the page open in its browser.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "list_library",
+    "title": "List the library",
+    "description": "Every site of the library with its address, the project folder it publishes to, its themes and their tutorials: path, title, steps, running time, status (draft, published, changed since publishing) and the agent that made it. Call it first, and reuse a site rather than create another one.",
+    "inputSchema": { "type": "object", "properties": {} },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "create_site",
+    "title": "Create a site",
+    "description": "Adds a site, the web application that tutorials document, with a first theme named General. publish_to is the folder of its web project that serves the tutorials, such as C:/code/app/public/guides. Leave it out when you do not know it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the application, such as Customer portal"
+        },
+        "address": {
+          "type": "string",
+          "description": "Address the browser of the studio opens, such as https://app.example.com or http://localhost:5173"
+        },
+        "publish_to": {
+          "type": "string",
+          "description": "Folder of the web project where published tutorials go (optional)"
+        }
+      },
+      "required": ["name", "address"]
+    }
+  },
+  {
+    "name": "update_site",
+    "title": "Update a site",
+    "description": "Changes the name, the address or the publish folder of a site. An empty publish_to unlinks the folder.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "site": { "type": "string", "description": "Id of the site, from list_library" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
+        "publish_to": { "type": "string" }
+      },
+      "required": ["site"]
+    }
+  },
+  {
+    "name": "create_theme",
+    "title": "Create a theme",
+    "description": "Adds a theme to a site. Themes group the tutorials of a site, such as Billing or Onboarding, and carry a label color.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "site": { "type": "string", "description": "Id of the site, from list_library" },
+        "name": { "type": "string" },
+        "color": {
+          "type": "string",
+          "enum": ["blue", "teal", "green", "yellow", "orange", "pink", "purple", "slate"]
+        }
+      },
+      "required": ["site", "name"]
+    }
+  },
+  {
+    "name": "create_tutorial",
+    "title": "Create a tutorial",
+    "description": "Creates a tutorial in a theme of a site and opens it in the editor, with the built-in browser on the address of the site, ready to record. The title is short and starts with a verb, such as Change the payment method.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "site": { "type": "string", "description": "Id of the site, from list_library" },
+        "theme": {
+          "type": "string",
+          "description": "Id of the theme (optional, the first theme of the site by default)"
+        },
+        "title": { "type": "string" },
+        "description": {
+          "type": "string",
+          "description": "One sentence on what the tutorial shows (optional)"
+        }
+      },
+      "required": ["site", "title"]
+    }
+  },
+  {
+    "name": "open_tutorial",
+    "title": "Open a tutorial",
+    "description": "Opens a tutorial of the library in the editor, to record more steps or to edit it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path of the tutorial, site/theme/tutorial, from list_library"
+        }
+      },
+      "required": ["path"]
+    }
+  },
+  {
+    "name": "read_tutorial",
+    "title": "Read a tutorial",
+    "description": "The tutorial open in the editor, or the one at path: its title and description, then each step with its number, title, text, running time, transition, page address, cursor and markers (number, title, text, and position from 0 to 1 of its screenshot).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path of the tutorial (optional, the open one by default)"
+        }
+      }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "update_tutorial",
+    "title": "Rename a tutorial",
+    "description": "Changes the title or the description of the tutorial open in the editor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    }
+  },
+  {
+    "name": "open_page",
+    "title": "Open a page",
+    "description": "Opens an address in the browser of the studio, in the Site view of the editor, and waits for the page to load. A tutorial must be open: the browser lives in its editor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "url": { "type": "string" } },
+      "required": ["url"]
+    }
+  },
+  {
+    "name": "look",
+    "title": "Look at the page",
+    "description": "Shows you the page open in the browser of the studio: a screenshot of what is on screen, its address and title, how far it is scrolled, and the elements you can act on, each with a ref (e1, e2...), its role, its name and its box in CSS pixels of the window. Elements above or below the window come with on_screen false. Look again after each change of the page: a ref belongs to the page as you last saw it. Field values are never read.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "screenshot": {
+          "type": "boolean",
+          "description": "Include the screenshot (true by default)"
+        }
+      }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "click",
+    "title": "Click",
+    "description": "Clicks an element as a person would with the mouse, after scrolling it into view. While the studio records, the click becomes a step: the screen just before the click, the cursor and a marker named after the element. Returns that step and the page the click led to.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ref": { "type": "string", "description": "Ref of the element, from the latest look" }
+      },
+      "required": ["ref"]
+    }
+  },
+  {
+    "name": "type_text",
+    "title": "Type text",
+    "description": "Types text into a field, replacing what it held, or picks the option of a select by its text. Use demo data only. The text shows on the screenshot of the next step: typing makes no step by itself.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ref": { "type": "string", "description": "Ref of the field, from the latest look" },
+        "text": { "type": "string" },
+        "submit": {
+          "type": "boolean",
+          "description": "Submit the form after typing, like Enter (false by default)"
+        }
+      },
+      "required": ["ref", "text"]
+    }
+  },
+  {
+    "name": "press_key",
+    "title": "Press a key",
+    "description": "Presses a key in the page, on the element that has the focus.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "Enter",
+            "Escape",
+            "Tab",
+            "Backspace",
+            "Delete",
+            "Space",
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown"
+          ]
+        }
+      },
+      "required": ["key"]
+    }
+  },
+  {
+    "name": "scroll",
+    "title": "Scroll",
+    "description": "Scrolls the page to an element, to its top or bottom, or by a number of CSS pixels (positive goes down). While recording, the next step shows the page scrolled this way.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string",
+          "description": "Ref of an element to bring to the middle of the window"
+        },
+        "to": { "type": "string", "enum": ["top", "bottom"] },
+        "by": { "type": "integer" }
+      }
+    }
+  },
+  {
+    "name": "go_back",
+    "title": "Go back",
+    "description": "Goes back to the previous page in the browser of the studio.",
+    "inputSchema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "start_recording",
+    "title": "Start recording",
+    "description": "Starts recording the tutorial open in the editor. From now on, each click becomes a step, as when the creator records by hand.",
+    "inputSchema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "stop_recording",
+    "title": "Stop recording",
+    "description": "Stops recording. The last screen joins the tutorial, unless the last step already shows it.",
+    "inputSchema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "capture_step",
+    "title": "Capture a step",
+    "description": "Adds the page as it is now as a step, recording or not, such as the result of an action. With a ref, a numbered marker points at that element, named marker_title.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ref": { "type": "string", "description": "Element the marker points at (optional)" },
+        "title": { "type": "string", "description": "Title of the step, starting with a verb" },
+        "text": { "type": "string", "description": "One or two sentences under the title" },
+        "marker_title": { "type": "string" },
+        "marker_text": { "type": "string" }
+      }
+    }
+  },
+  {
+    "name": "update_step",
+    "title": "Update a step",
+    "description": "Changes the title, the text, the running time or the transition of a step of the open tutorial.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "step": { "type": "integer", "description": "Number of the step, from 1" },
+        "title": { "type": "string", "description": "Short, starting with a verb" },
+        "text": { "type": "string", "description": "One or two sentences shown under the title" },
+        "duration_ms": {
+          "type": "integer",
+          "description": "How long the step plays, from 1000 to 30000"
+        },
+        "transition": { "type": "string", "enum": ["fade", "cut"] }
+      },
+      "required": ["step"]
+    }
+  },
+  {
+    "name": "add_marker",
+    "title": "Add a marker",
+    "description": "Adds a numbered marker to a step, at a point of its screenshot given from 0 to 1 of its width and height. read_tutorial gives the positions of the markers and of the cursor.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "step": { "type": "integer", "description": "Number of the step, from 1" },
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "title": { "type": "string" },
+        "text": { "type": "string" }
+      },
+      "required": ["step", "x", "y", "title"]
+    }
+  },
+  {
+    "name": "update_marker",
+    "title": "Update a marker",
+    "description": "Changes the title, the text or the position of a marker of a step.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "step": { "type": "integer", "description": "Number of the step, from 1" },
+        "marker": { "type": "integer", "description": "Number of the marker in the step, from 1" },
+        "title": { "type": "string" },
+        "text": { "type": "string" },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "required": ["step", "marker"]
+    }
+  },
+  {
+    "name": "remove_marker",
+    "title": "Remove a marker",
+    "description": "Removes a marker from a step of the open tutorial. The creator can undo it in the studio.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "step": { "type": "integer", "description": "Number of the step, from 1" },
+        "marker": { "type": "integer", "description": "Number of the marker in the step, from 1" }
+      },
+      "required": ["step", "marker"]
+    },
+    "annotations": { "destructiveHint": true }
+  },
+  {
+    "name": "move_step",
+    "title": "Move a step",
+    "description": "Moves a step to another place in the tutorial.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "step": { "type": "integer", "description": "Number of the step, from 1" },
+        "to": { "type": "integer", "description": "Its new number" }
+      },
+      "required": ["step", "to"]
+    }
+  },
+  {
+    "name": "delete_step",
+    "title": "Delete a step",
+    "description": "Deletes a step of the open tutorial. The creator can undo it in the studio.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "step": { "type": "integer", "description": "Number of the step, from 1" } },
+      "required": ["step"]
+    },
+    "annotations": { "destructiveHint": true }
+  },
+  {
+    "name": "undo",
+    "title": "Undo",
+    "description": "Undoes the last change of the open tutorial, like Ctrl+Z in the studio.",
+    "inputSchema": { "type": "object", "properties": {} }
+  },
+  {
+    "name": "show_step",
+    "title": "Show a step",
+    "description": "Shows a step in the editor, its screenshot with its markers, the way the creator edits it, and gives you a picture of the studio window to check it.",
+    "inputSchema": {
+      "type": "object",
+      "properties": { "step": { "type": "integer", "description": "Number of the step, from 1" } },
+      "required": ["step"]
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "play_tutorial",
+    "title": "Play the tutorial",
+    "description": "Plays the open tutorial in the player of the editor, from the start or from a step, for the creator to watch.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from_step": {
+          "type": "integer",
+          "description": "Number of the step to start from (optional)"
+        }
+      }
+    },
+    "annotations": { "readOnlyHint": true }
+  },
+  {
+    "name": "publish_tutorial",
+    "title": "Publish a tutorial",
+    "description": "Publishes the tutorial into the project folder its site publishes to, where the web application serves it, and returns that folder. The open tutorial by default.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "description": "Path of the tutorial (optional)" }
+      }
+    }
+  },
+  {
+    "name": "export_tutorial",
+    "title": "Export a ZIP",
+    "description": "Writes the tutorial as a ZIP archive, guide.json and its screenshots, the archive the browser extension and the command line open. The open tutorial by default.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string", "description": "Path of the tutorial (optional)" },
+        "target": {
+          "type": "string",
+          "description": "Path of the archive to write, ending in .zip"
+        }
+      },
+      "required": ["target"]
+    }
+  }
+]
