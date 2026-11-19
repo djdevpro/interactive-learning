@@ -15,7 +15,8 @@ interface RecorderOptions {
   capture: () => Promise<Baseline>;
   read: () => GuideDocument;
   write: (guide: GuideDocument) => Promise<void>;
-  announce: (message: string) => void;
+  /** Says which step a capture or a click just made, by its number and its title. */
+  announce: (number: number, title: string) => void;
   fail: (cause: unknown) => void;
 }
 
@@ -72,7 +73,7 @@ export function createRecorder(options: RecorderOptions) {
     if (!base) return;
     const guide = clickStep(options.read(), base, click);
     await options.write(guide);
-    options.announce(`Step ${guide.steps.length} · ${guide.steps.at(-1)?.title ?? ''}`);
+    options.announce(guide.steps.length, guide.steps.at(-1)?.title ?? '');
   }
 
   return {
@@ -130,7 +131,7 @@ export function createRecorder(options: RecorderOptions) {
         if (active.value) baseline = base;
         const guide = screenStep(options.read(), base);
         await options.write(guide);
-        options.announce(`Step ${guide.steps.length} · ${guide.steps.at(-1)?.title ?? ''}`);
+        options.announce(guide.steps.length, guide.steps.at(-1)?.title ?? '');
       });
     },
   };

@@ -12,6 +12,7 @@ const paths = {
   left: '<path d="m14.5 18-6-6 6-6"/>',
   right: '<path d="m9.5 18 6-6-6-6"/>',
   down: '<path d="m6 9.5 6 6 6-6"/>',
+  up: '<path d="m6 14.5 6-6 6 6"/>',
   more: '<path d="M6 12h.01M12 12h.01M18 12h.01" stroke-width="2.6"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
   close: '<path d="m6.5 6.5 11 11M17.5 6.5l-11 11"/>',

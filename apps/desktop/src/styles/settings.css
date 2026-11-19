@@ -11,6 +11,12 @@
   margin-bottom: var(--space-2);
 }
 
+/* A little air between the sections, so a hovered one never touches the current one. */
+.settings-tabs {
+  display: grid;
+  gap: 3px;
+}
+
 .settings-tab {
   display: flex;
   align-items: center;

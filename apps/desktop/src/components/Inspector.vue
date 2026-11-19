@@ -3,8 +3,9 @@ import { computed, nextTick, watch } from 'vue';
 import type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
 import Icon from './Icon.vue';
 import { MAX_DURATION_MS, MIN_DURATION_MS, seconds, stepStarts } from '../editing';
+import { formatDateTime, t, type MessageKey } from '../i18n';
 import { runtime } from '../library';
-import { canRecord, NO_RECORDING } from '../platform';
+import { canRecord, noRecording } from '../platform';
 
 /**
  * The properties of what is selected: the step with its time, its screen and its markers, or
@@ -21,14 +22,15 @@ const props = defineProps<{
   publishedAt: string | null;
 }>();
 const emit = defineEmits<{
-  step: [change: (step: GuideStep) => GuideStep, label: string];
-  guide: [change: (guide: GuideDocument) => GuideDocument, label: string];
+  step: [change: (step: GuideStep) => GuideStep, label: MessageKey];
+  guide: [change: (guide: GuideDocument) => GuideDocument, label: MessageKey];
   'select-marker': [id: string | null];
   'remove-marker': [id: string];
   'remove-step': [];
   'duplicate-step': [];
   retake: [];
   'whole-page': [whole: boolean];
+  'marker-menu': [event: MouseEvent, id: string];
 }>();
 
 const total = computed(() => stepStarts(props.guide).total);
@@ -45,7 +47,7 @@ function setDuration(event: Event): void {
   if (!Number.isFinite(value)) return;
   const ms =
     Math.round(Math.min(MAX_DURATION_MS, Math.max(MIN_DURATION_MS, value * 1000)) / 100) * 100;
-  emit('step', (step) => ({ ...step, durationMs: ms }), 'Change duration');
+  emit('step', (step) => ({ ...step, durationMs: ms }), 'history.duration');
 }
 
 function setAddress(event: Event): void {
@@ -56,9 +58,14 @@ function setAddress(event: Event): void {
       const { url: _previous, ...source } = step.source ?? { capturedAt: new Date().toISOString() };
       return { ...step, source: url ? { ...source, url } : source };
     },
-    'Change page address',
+    'history.pageAddress',
   );
 }
+
+const arrival = computed(() => {
+  if (props.index === 0) return t('inspector.opensTutorial');
+  return props.step?.transition === 'cut' ? t('inspector.cut') : t('inspector.fade');
+});
 
 // The selected marker's text field takes the focus, so a new marker is named at once.
 watch(
@@ -72,40 +79,48 @@ watch(
 </script>
 
 <template>
-  <aside class="inspector" aria-label="Properties">
+  <aside class="inspector" :aria-label="t('inspector.panel')">
     <template v-if="step">
       <header class="label-head">
         <span class="stop-disc tabular" aria-hidden="true">{{ index + 1 }}</span>
-        <label class="visually-hidden" for="step-title">Step title</label>
+        <label class="visually-hidden" for="step-title">{{ t('inspector.stepTitle') }}</label>
         <input
           id="step-title"
           class="label-title"
           :value="step.title"
-          placeholder="What the viewer does here"
-          @input="emit('step', (current) => ({ ...current, title: text($event) }), 'Rename step')"
+          :placeholder="t('inspector.stepTitlePlaceholder')"
+          @input="
+            emit('step', (current) => ({ ...current, title: text($event) }), 'history.renameStep')
+          "
         />
       </header>
       <p class="label-meta tabular">
-        Step {{ index + 1 }} of {{ guide.steps.length }} · {{ seconds(step.durationMs) }} ·
-        {{ index === 0 ? 'Opens the tutorial' : step.transition === 'cut' ? 'Cut' : 'Fade' }}
+        {{
+          t('inspector.stepMeta', {
+            number: index + 1,
+            count: guide.steps.length,
+            duration: seconds(step.durationMs),
+            arrival,
+          })
+        }}
       </p>
-      <label class="visually-hidden" for="step-text">Text of the step</label>
+      <label class="visually-hidden" for="step-text">{{ t('inspector.stepText') }}</label>
       <textarea
         id="step-text"
         class="textarea label-text"
         :value="step.description"
-        placeholder="A sentence the viewer reads under the title"
+        :placeholder="t('inspector.stepTextPlaceholder')"
         rows="2"
         @input="
-          emit('step', (current) => ({ ...current, description: text($event) }), 'Edit step text')
+          emit('step', (current) => ({ ...current, description: text($event) }), 'history.stepText')
         "
       ></textarea>
 
       <section class="label-section" aria-labelledby="timing-title">
-        <h3 id="timing-title">Timing</h3>
+        <h3 id="timing-title">{{ t('inspector.timing') }}</h3>
         <div class="label-row">
           <label class="field duration">
-            <span>Plays for</span>
+            <span>{{ t('inspector.playsFor') }}</span>
             <span class="with-unit">
               <input
                 class="input tabular"
@@ -120,7 +135,7 @@ watch(
             </span>
           </label>
           <div v-if="index > 0" class="field">
-            <span id="transition-title">Arrives with</span>
+            <span id="transition-title">{{ t('inspector.arrivesWith') }}</span>
             <div class="segmented" role="group" aria-labelledby="transition-title">
               <button
                 type="button"
@@ -129,11 +144,11 @@ watch(
                   emit(
                     'step',
                     (current) => ({ ...current, transition: 'fade' }),
-                    'Change transition',
+                    'history.transition',
                   )
                 "
               >
-                <Icon name="fade" :size="15" />Fade
+                <Icon name="fade" :size="15" />{{ t('inspector.fade') }}
               </button>
               <button
                 type="button"
@@ -142,11 +157,11 @@ watch(
                   emit(
                     'step',
                     (current) => ({ ...current, transition: 'cut' }),
-                    'Change transition',
+                    'history.transition',
                   )
                 "
               >
-                <Icon name="cut" :size="15" />Cut
+                <Icon name="cut" :size="15" />{{ t('inspector.cut') }}
               </button>
             </div>
           </div>
@@ -154,9 +169,9 @@ watch(
       </section>
 
       <section class="label-section" aria-labelledby="screenshot-title">
-        <h3 id="screenshot-title">Screenshot</h3>
+        <h3 id="screenshot-title">{{ t('inspector.screenshot') }}</h3>
         <label class="field">
-          <span>Page address</span>
+          <span>{{ t('inspector.pageAddress') }}</span>
           <input
             class="input"
             :value="step.source?.url ?? ''"
@@ -171,41 +186,43 @@ watch(
             :disabled="!canRetake"
             :title="
               !canRecord
-                ? NO_RECORDING
+                ? noRecording()
                 : canRetake
-                  ? 'Replace the screenshot with the page open in the Site view'
-                  : 'Open the page in the Site view to retake it'
+                  ? t('inspector.retakeTitle')
+                  : t('inspector.retakeNeedsPage')
             "
             @click="emit('retake')"
           >
-            <Icon name="retake" :size="15" />Retake screenshot
+            <Icon name="retake" :size="15" />{{ t('inspector.retake') }}
           </button>
           <button
             v-if="step.viewport && step.viewport.height < 0.999"
             type="button"
             class="button small quiet"
-            title="Show the whole page instead of the part that was on screen"
+            :title="t('inspector.wholePageTitle')"
             @click="emit('whole-page', true)"
           >
-            <Icon name="fit" :size="15" />Show whole page
+            <Icon name="fit" :size="15" />{{ t('inspector.wholePage') }}
           </button>
         </div>
       </section>
 
       <section class="label-section" aria-labelledby="markers-title">
         <h3 id="markers-title">
-          Markers <span class="label-count tabular">{{ step.annotations.length }}</span>
+          {{ t('inspector.markers') }}
+          <span class="label-count tabular">{{ step.annotations.length }}</span>
         </h3>
         <ol v-if="step.annotations.length" class="marker-list">
           <li
             v-for="(marker, position) in step.annotations"
             :key="marker.id"
             :class="{ selected: marker.id === selectedMarker }"
+            @contextmenu="emit('marker-menu', $event, marker.id)"
           >
             <button
               type="button"
               class="marker-disc tabular"
-              :title="`Select marker ${firstNumber + position}`"
+              :title="t('inspector.selectMarker', { number: firstNumber + position })"
               @click="emit('select-marker', marker.id)"
             >
               {{ firstNumber + position }}
@@ -217,8 +234,8 @@ watch(
                 :value="marker.title"
                 :placeholder="
                   position === 0 && step.cursor
-                    ? 'What the click does'
-                    : 'What the viewer should notice'
+                    ? t('inspector.clickMarkerPlaceholder')
+                    : t('inspector.markerPlaceholder')
                 "
                 @focus="emit('select-marker', marker.id)"
                 @input="
@@ -230,7 +247,7 @@ watch(
                         entry.id === marker.id ? { ...entry, title: text($event) } : entry,
                       ),
                     }),
-                    'Edit marker',
+                    'history.editMarker',
                   )
                 "
               />
@@ -239,7 +256,7 @@ watch(
                 class="textarea"
                 rows="2"
                 :value="marker.body"
-                placeholder="More detail, shown when the viewer opens the marker"
+                :placeholder="t('inspector.markerBodyPlaceholder')"
                 @input="
                   emit(
                     'step',
@@ -249,86 +266,88 @@ watch(
                         entry.id === marker.id ? { ...entry, body: text($event) } : entry,
                       ),
                     }),
-                    'Edit marker',
+                    'history.editMarker',
                   )
                 "
               ></textarea>
               <p v-if="position === 0 && step.cursor" class="hint">
-                The cursor clicks this marker.
+                {{ t('inspector.cursorClicks') }}
               </p>
             </div>
             <button
               type="button"
               class="button icon small quiet"
-              :title="`Delete marker ${firstNumber + position}`"
+              :title="t('inspector.deleteMarker', { number: firstNumber + position })"
               @click="emit('remove-marker', marker.id)"
             >
               <Icon name="trash" :size="15" />
             </button>
           </li>
         </ol>
-        <p class="hint">Click the screen to add a marker.</p>
+        <p class="hint">{{ t('inspector.addMarkerHint') }}</p>
       </section>
 
       <footer class="label-foot">
         <button type="button" class="button small" @click="emit('duplicate-step')">
-          <Icon name="copy" :size="15" />Duplicate
+          <Icon name="copy" :size="15" />{{ t('inspector.duplicate') }}
         </button>
         <button type="button" class="button small quiet danger-text" @click="emit('remove-step')">
-          <Icon name="trash" :size="15" />Delete step
+          <Icon name="trash" :size="15" />{{ t('inspector.deleteStep') }}
         </button>
       </footer>
     </template>
 
     <template v-else>
-      <label class="visually-hidden" for="tutorial-title">Tutorial title</label>
+      <label class="visually-hidden" for="tutorial-title">{{ t('editor.tutorialTitle') }}</label>
       <input
         id="tutorial-title"
         class="label-title"
         :value="guide.title"
-        placeholder="Name of the tutorial"
+        :placeholder="t('inspector.tutorialTitlePlaceholder')"
         @input="
-          emit('guide', (current) => ({ ...current, title: text($event) }), 'Rename tutorial')
+          emit(
+            'guide',
+            (current) => ({ ...current, title: text($event) }),
+            'history.renameTutorial',
+          )
         "
       />
       <p class="label-meta tabular">
-        {{ guide.steps.length === 1 ? '1 step' : `${guide.steps.length} steps` }} ·
+        {{ t('common.steps', { count: guide.steps.length }) }} ·
         {{ runtime(total) }}
-        <template v-if="pages > 1"> · {{ pages }} pages</template>
+        <template v-if="pages > 1"> · {{ t('common.pages', { count: pages }) }}</template>
       </p>
       <textarea
         class="textarea label-text"
         :value="guide.description"
-        placeholder="What this tutorial teaches"
+        :placeholder="t('inspector.tutorialDescription')"
         rows="3"
         @input="
           emit(
             'guide',
             (current) => ({ ...current, description: text($event) }),
-            'Edit description',
+            'history.editDescription',
           )
         "
       ></textarea>
       <section class="label-section">
-        <h3>Publishing</h3>
+        <h3>{{ t('inspector.publishing') }}</h3>
         <p v-if="publishTo" class="label-note">
           <Icon name="link" :size="15" />
           <span
-            >Publishes to <b :title="publishTo">{{ publishTo }}</b
-            ><template v-if="publishedAt"
-              >, last on {{ new Date(publishedAt).toLocaleString('en-GB') }}</template
+            >{{ t('inspector.publishesTo') }} <b :title="publishTo">{{ publishTo }}</b
+            ><template v-if="publishedAt">{{
+              t('inspector.lastPublished', { date: formatDateTime(publishedAt) })
+            }}</template
             >.</span
           >
         </p>
         <p v-else class="label-note">
           <Icon name="info" :size="15" />
-          <span
-            >Link the site to a project folder in the library to publish there. Export ZIP works
-            anytime.</span
-          >
+          <span>{{ t('inspector.notLinked') }}</span>
         </p>
       </section>
-      <p class="hint">Select a step on the timeline to edit it.</p>
+      <p class="hint">{{ t('inspector.selectStepHint') }}</p>
     </template>
   </aside>
 </template>

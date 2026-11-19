@@ -322,9 +322,12 @@ fn fetch(etag: Option<&str>) -> Result<Option<Releases>, String> {
     if let Some(etag) = etag {
         request = request.header("If-None-Match", etag);
     }
-    let mut response = request
-        .call()
-        .map_err(|error| format!("GitHub could not be reached: {error}"))?;
+    let mut response = request.call().map_err(|error| {
+        tr!(
+            "GitHub could not be reached: {error}",
+            "GitHub est injoignable : {error}"
+        )
+    })?;
     let etag = response
         .headers()
         .get("etag")
@@ -333,8 +336,18 @@ fn fetch(etag: Option<&str>) -> Result<Option<Releases>, String> {
     match response.status().as_u16() {
         304 => return Ok(None),
         200 => {}
-        403 | 429 => return Err("GitHub limits checks for now. Try again in an hour.".to_string()),
-        status => return Err(format!("GitHub answered {status}.")),
+        403 | 429 => {
+            return Err(tr!(
+                "GitHub limits checks for now. Try again in an hour.",
+                "GitHub limite les vérifications pour l'instant. Réessayez dans une heure."
+            ))
+        }
+        status => {
+            return Err(tr!(
+                "GitHub answered {status}.",
+                "GitHub a répondu {status}."
+            ))
+        }
     }
     let text = response
         .body_mut()
@@ -342,8 +355,8 @@ fn fetch(etag: Option<&str>) -> Result<Option<Releases>, String> {
         .limit(16 * 1024 * 1024)
         .read_to_string()
         .map_err(|error| error.to_string())?;
-    let releases: Vec<Value> =
-        serde_json::from_str(&text).map_err(|error| format!("Unreadable answer: {error}"))?;
+    let releases: Vec<Value> = serde_json::from_str(&text)
+        .map_err(|error| tr!("Unreadable answer: {error}", "Réponse illisible : {error}"))?;
     Ok(Some((releases, etag)))
 }
 
@@ -353,10 +366,12 @@ fn download(
     folder: &Path,
     mut progress: impl FnMut(u64, u64),
 ) -> Result<PathBuf, String> {
-    let asset = release
-        .asset
-        .as_ref()
-        .ok_or("This version has no file for this system.")?;
+    let asset = release.asset.as_ref().ok_or_else(|| {
+        tr!(
+            "This version has no file for this system.",
+            "Cette version n'a pas de fichier pour ce système."
+        )
+    })?;
     let expected = match (&asset.sha256, &release.sums) {
         (Some(hash), _) => Some(hash.clone()),
         (None, Some(url)) => {
@@ -373,7 +388,12 @@ fn download(
         }
         _ => None,
     }
-    .ok_or("This version gives no SHA-256 for its file, so it is not installed.")?;
+    .ok_or_else(|| {
+        tr!(
+            "This version gives no SHA-256 for its file, so it is not installed.",
+            "Cette version ne donne pas de SHA-256 pour son fichier : elle n'est pas installée."
+        )
+    })?;
     std::fs::create_dir_all(folder).map_err(|error| error.to_string())?;
     let destination = folder.join(&asset.name);
     let part = folder.join(format!("{}.part", asset.name));
@@ -381,11 +401,17 @@ fn download(
         .get(&asset.url)
         .header("User-Agent", USER_AGENT)
         .call()
-        .map_err(|error| format!("The download failed: {error}"))?;
-    if response.status().as_u16() != 200 {
-        return Err(format!(
-            "The download failed: GitHub answered {}.",
-            response.status().as_u16()
+        .map_err(|error| {
+            tr!(
+                "The download failed: {error}",
+                "Le téléchargement a échoué : {error}"
+            )
+        })?;
+    let status = response.status().as_u16();
+    if status != 200 {
+        return Err(tr!(
+            "The download failed: GitHub answered {status}.",
+            "Le téléchargement a échoué : GitHub a répondu {status}."
         ));
     }
     let total = asset.size.max(1);
@@ -399,9 +425,12 @@ fn download(
     let mut buffer = vec![0u8; 64 * 1024];
     let mut done = 0u64;
     loop {
-        let read = reader
-            .read(&mut buffer)
-            .map_err(|error| format!("The download stopped: {error}"))?;
+        let read = reader.read(&mut buffer).map_err(|error| {
+            tr!(
+                "The download stopped: {error}",
+                "Le téléchargement s'est interrompu : {error}"
+            )
+        })?;
         if read == 0 {
             break;
         }
@@ -414,9 +443,10 @@ fn download(
     drop(file);
     if format!("{:x}", hasher.finalize()) != expected {
         let _ = std::fs::remove_file(&part);
-        return Err(
-            "The downloaded file does not match its SHA-256, so it is not installed.".to_string(),
-        );
+        return Err(tr!(
+            "The downloaded file does not match its SHA-256, so it is not installed.",
+            "Le fichier téléchargé ne correspond pas à son SHA-256 : il n'est pas installé."
+        ));
     }
     std::fs::rename(&part, &destination).map_err(|error| error.to_string())?;
     Ok(destination)
@@ -473,7 +503,12 @@ pub async fn update_download(app: AppHandle) -> Result<String, String> {
         .lock()
         .ok()
         .and_then(|cache| cache.latest.clone())
-        .ok_or("Check for updates first.")?;
+        .ok_or_else(|| {
+            tr!(
+                "Check for updates first.",
+                "Vérifiez d'abord les mises à jour."
+            )
+        })?;
     let reporter = app.clone();
     let path = tauri::async_runtime::spawn_blocking(move || {
         let mut last = 0u64;
@@ -504,7 +539,12 @@ pub fn update_install(app: AppHandle, updater: State<'_, Updater>) -> Result<Str
         .ok()
         .and_then(|cache| cache.downloaded.clone())
         .filter(|file| file.is_file())
-        .ok_or("Download the new version first.")?;
+        .ok_or_else(|| {
+            tr!(
+                "Download the new version first.",
+                "Téléchargez d'abord la nouvelle version."
+            )
+        })?;
     match install_kind() {
         Install::Installer => {
             run_detached(&file, &["/P", "/R", "/UPDATE"])?;
@@ -512,7 +552,7 @@ pub fn update_install(app: AppHandle, updater: State<'_, Updater>) -> Result<Str
             Ok("installer".to_string())
         }
         Install::AppImage => {
-            let image = PathBuf::from(std::env::var_os("APPIMAGE").ok_or("No AppImage runs.")?);
+            let image = PathBuf::from(std::env::var_os("APPIMAGE").ok_or_else(|| tr!("No AppImage runs.", "Aucune AppImage ne tourne."))?);
             replace_appimage(&image, &file)?;
             run_detached(&image, &[])?;
             quit_soon(app);
@@ -525,10 +565,10 @@ pub fn update_install(app: AppHandle, updater: State<'_, Updater>) -> Result<Str
                 .map_err(|error| error.to_string())?;
             Ok("package".to_string())
         }
-        Install::Source | Install::Manual => Err(
-            "This copy did not come from an installer. Download the new version from the releases page."
-                .to_string(),
-        ),
+        Install::Source | Install::Manual => Err(tr!(
+            "This copy did not come from an installer. Download the new version from the releases page.",
+            "Cette copie ne vient pas d'un installeur. Téléchargez la nouvelle version depuis la page des versions."
+        )),
     }
 }
 
@@ -547,10 +587,12 @@ fn run_detached(program: &Path, args: &[&str]) -> Result<(), String> {
         use std::os::unix::process::CommandExt;
         command.process_group(0);
     }
-    command
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("The new version could not start: {error}"))
+    command.spawn().map(|_| ()).map_err(|error| {
+        tr!(
+            "The new version could not start: {error}",
+            "La nouvelle version n'a pas pu démarrer : {error}"
+        )
+    })
 }
 
 /// The studio closes once the answer reached the interface, so it can say what happens.
@@ -568,7 +610,10 @@ fn replace_appimage(image: &Path, new: &Path) -> Result<(), String> {
     std::fs::rename(image, &old).map_err(|error| format!("{}: {error}", image.display()))?;
     if let Err(error) = std::fs::copy(new, image) {
         let _ = std::fs::rename(&old, image);
-        return Err(format!("The new version could not be installed: {error}"));
+        return Err(tr!(
+            "The new version could not be installed: {error}",
+            "La nouvelle version n'a pas pu être installée : {error}"
+        ));
     }
     #[cfg(unix)]
     {

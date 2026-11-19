@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
 import { seconds } from '../editing';
+import { t } from '../i18n';
 import { canRecord } from '../platform';
 
 /** The left panel of the editor: the steps of the tutorial, in the order a viewer meets them. */
@@ -12,6 +13,7 @@ defineProps<{
 const emit = defineEmits<{
   select: [stepId: string];
   move: [from: number, to: number];
+  menu: [event: MouseEvent, stepId: string];
 }>();
 
 function thumbStyle(step: GuideStep): Record<string, string> {
@@ -32,7 +34,7 @@ function onKey(index: number, event: KeyboardEvent): void {
   <aside class="media" aria-labelledby="media-title">
     <header class="media-head">
       <h2 id="media-title">
-        Steps <span class="label-count tabular">{{ guide.steps.length }}</span>
+        {{ t('media.steps') }} <span class="label-count tabular">{{ guide.steps.length }}</span>
       </h2>
     </header>
 
@@ -42,30 +44,26 @@ function onKey(index: number, event: KeyboardEvent): void {
           type="button"
           class="outline-row"
           :aria-current="step.id === selectedId ? 'step' : undefined"
-          :title="'Alt+↑ and Alt+↓ move the step'"
+          :title="t('media.moveHint')"
           @click="emit('select', step.id)"
           @keydown="onKey(index, $event)"
+          @contextmenu="emit('menu', $event, step.id)"
         >
           <span class="outline-number tabular">{{ index + 1 }}</span>
           <img class="outline-thumb" :src="imageOf(step)" :style="thumbStyle(step)" alt="" />
           <span class="outline-text">
-            <span class="outline-title">{{ step.title || 'Untitled step' }}</span>
+            <span class="outline-title">{{ step.title || t('common.untitledStep') }}</span>
             <span class="outline-meta tabular">
               {{ seconds(step.durationMs) }}
               <template v-if="step.annotations.length">
-                ·
-                {{
-                  step.annotations.length === 1 ? '1 marker' : `${step.annotations.length} markers`
-                }}
+                · {{ t('common.markers', { count: step.annotations.length }) }}
               </template>
             </span>
           </span>
         </button>
       </li>
       <li v-if="!guide.steps.length" class="outline-empty">
-        {{
-          canRecord ? 'Record the site. Each click you make becomes a step here.' : 'No step yet.'
-        }}
+        {{ canRecord ? t('media.emptyRecord') : t('media.empty') }}
       </li>
     </ol>
   </aside>

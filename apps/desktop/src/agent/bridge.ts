@@ -3,8 +3,25 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import catalog from './tools.json';
 import { tools } from './tools';
-import type { AgentHost } from './types';
+import type { AgentHost, Summary } from './types';
+import { isMessageKey, t, type Params } from '../i18n';
 import { notify } from '../ui';
+
+/**
+ * A sentence of the journal in the language of the interface. A parameter that is itself a key
+ * of the catalog, such as the name of an undone action, is written in that language too. Entries
+ * of older versions were plain text, kept as they are.
+ */
+export function summaryText(summary: Summary | string | null | undefined): string {
+  if (!summary) return '';
+  if (typeof summary === 'string') return summary;
+  if (!isMessageKey(summary.key)) return '';
+  const params: Params = {};
+  for (const [name, value] of Object.entries(summary.params ?? {})) {
+    params[name] = isMessageKey(value) ? t(value) : value;
+  }
+  return t(summary.key, params);
+}
 
 interface AgentCall {
   id: number;
@@ -51,12 +68,13 @@ export async function startBridge(host: AgentHost): Promise<UnlistenFn> {
         ok: true,
         data: result.data ?? null,
         images: result.images ?? [],
-        summary: result.summary ?? '',
+        summary: result.summary ?? null,
         tutorial: result.tutorial ?? null,
       };
       if (!readOnly.has(call.name)) {
         host.libraryChanged();
-        if (result.summary) notify(`${call.agent} · ${result.summary}`);
+        const sentence = summaryText(result.summary);
+        if (sentence) notify(`${call.agent} · ${sentence}`);
       }
     } catch (cause) {
       reply = { ok: false, error: messageOf(cause), data: null };

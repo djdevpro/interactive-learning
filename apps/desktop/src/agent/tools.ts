@@ -12,9 +12,10 @@ import {
   updateStep,
 } from '../editing';
 import { THEME_COLORS, library, partsOf, tutorialStatus, type ThemeColor } from '../library';
-import { canRecord, NO_RECORDING } from '../platform';
+import { isMessageKey, t, type MessageKey } from '../i18n';
+import { canRecord, noRecording } from '../platform';
 import { describeGuide, describeStep, markerAt, pointOf, pointedStep, stepAt } from './steps';
-import type { AgentContext, EditorAgent, Tool, ToolArgs } from './types';
+import type { AgentContext, EditorAgent, Summary, Tool, ToolArgs } from './types';
 
 /** Where the agent script points in the window, in CSS pixels, and what it found there. */
 interface Target {
@@ -96,7 +97,7 @@ function changeStep(
   editor: EditorAgent,
   number: unknown,
   edit: (step: GuideDocument['steps'][number]) => GuideDocument['steps'][number],
-  label: string,
+  label: MessageKey,
 ) {
   const guide = guideOf(editor);
   const { step, index } = stepAt(guide, number);
@@ -168,10 +169,11 @@ export const tools: Record<string, Tool> = {
     const address = required(args, 'address');
     const publishTo = text(args, 'publish_to')?.trim() || null;
     const site = await library.saveSite({ name, address, publishTo });
-    const theme = await library.saveTheme(site, { name: 'General', color: 'blue' });
+    const general = t('library.generalTheme');
+    const theme = await library.saveTheme(site, { name: general, color: 'blue' });
     return {
-      data: { site, themes: [{ id: theme, name: 'General' }], address, publish_to: publishTo },
-      summary: `Created the site ${name}`,
+      data: { site, themes: [{ id: theme, name: general }], address, publish_to: publishTo },
+      summary: { key: 'activity.createdSite', params: { name } },
     };
   },
 
@@ -192,7 +194,7 @@ export const tools: Record<string, Tool> = {
     await context.host.editor()?.refresh();
     return {
       data: { site: saved, name, address, publish_to: publishTo },
-      summary: `Updated the site ${name}`,
+      summary: { key: 'activity.updatedSite', params: { name } },
     };
   },
 
@@ -208,7 +210,10 @@ export const tools: Record<string, Tool> = {
         ? wanted
         : (THEME_COLORS.find((candidate) => !used.has(candidate)) ?? 'blue');
     const theme = await library.saveTheme(site.id, { name, color });
-    return { data: { site: site.id, theme, color }, summary: `Created the theme ${name}` };
+    return {
+      data: { site: site.id, theme, color },
+      summary: { key: 'activity.createdTheme', params: { name } },
+    };
   },
 
   async create_tutorial(args, context) {
@@ -222,7 +227,8 @@ export const tools: Record<string, Tool> = {
       throw new Error(`The site ${site.name} has no theme ${theme}. Its themes: ${names}.`);
     }
     theme ||=
-      site.themes[0]?.id ?? (await library.saveTheme(site.id, { name: 'General', color: 'blue' }));
+      site.themes[0]?.id ??
+      (await library.saveTheme(site.id, { name: t('library.generalTheme'), color: 'blue' }));
     const guide = createGuide(title, text(args, 'description')?.trim() ?? '');
     const path = await library.createTutorial(site.id, theme, guide, context.agent);
     const editor = await context.host.open(path, 'record');
@@ -237,7 +243,7 @@ export const tools: Record<string, Tool> = {
           ? 'The browser shows the site. open_page on the first page of the flow if needed, then start_recording.'
           : 'The site has no address. Call open_page, then start_recording.',
       },
-      summary: `Created “${title}”`,
+      summary: { key: 'activity.createdTutorial', params: { title } },
       tutorial: path,
     };
   },
@@ -253,7 +259,7 @@ export const tools: Record<string, Tool> = {
         steps: guide.steps.length,
         page: editor.page()?.url ?? null,
       },
-      summary: `Opened “${guide.title}”`,
+      summary: { key: 'activity.openedTutorial', params: { title: guide.title } },
       tutorial: path,
     };
   },
@@ -273,10 +279,10 @@ export const tools: Record<string, Tool> = {
     const guide = guideOf(editor);
     const title = text(args, 'title')?.trim() || guide.title;
     const description = text(args, 'description')?.trim() ?? guide.description;
-    editor.change({ ...guide, title, description }, 'Rename tutorial');
+    editor.change({ ...guide, title, description }, 'history.renameTutorial');
     return {
       data: { title, description },
-      summary: `Renamed the tutorial “${title}”`,
+      summary: { key: 'activity.renamedTutorial', params: { title } },
       tutorial: editor.path,
     };
   },
@@ -290,7 +296,7 @@ export const tools: Record<string, Tool> = {
     const page = await where();
     return {
       data: { ...page, still_loading: Boolean(editor.page()?.loading) },
-      summary: `Opened ${url}`,
+      summary: { key: 'activity.openedPage', params: { url } },
       tutorial: editor.path,
     };
   },
@@ -350,7 +356,9 @@ export const tools: Record<string, Tool> = {
           : {}),
         page: await where(),
       },
-      summary: step ? `Recorded step ${step.number} · ${step.title}` : `Clicked “${name}”`,
+      summary: (step
+        ? { key: 'activity.recordedStep', params: { number: step.number, title: step.title } }
+        : { key: 'activity.clicked', params: { name } }) satisfies Summary as Summary,
       tutorial: editor.path,
     };
   },
@@ -371,7 +379,7 @@ export const tools: Record<string, Tool> = {
     // The journal never keeps what was typed.
     return {
       data: { ...result, page: await where() },
-      summary: submit ? 'Filled a field and submitted' : 'Filled a field',
+      summary: { key: submit ? 'activity.filledAndSubmitted' : 'activity.filled' },
       tutorial: editor.path,
     };
   },
@@ -384,7 +392,7 @@ export const tools: Record<string, Tool> = {
     await settle(editor, 500);
     return {
       data: { ...result, page: await where() },
-      summary: `Pressed ${key}`,
+      summary: { key: 'activity.pressed', params: { key } },
       tutorial: editor.path,
     };
   },
@@ -399,7 +407,7 @@ export const tools: Record<string, Tool> = {
       by: Number.isFinite(by) ? by : null,
     });
     await sleep(300);
-    return { data: page, summary: 'Scrolled the page', tutorial: editor.path };
+    return { data: page, summary: { key: 'activity.scrolled' }, tutorial: editor.path };
   },
 
   async go_back(_args, context) {
@@ -407,11 +415,11 @@ export const tools: Record<string, Tool> = {
     await showSite(editor);
     await invoke('site_history', { action: 'back' });
     await settle(editor);
-    return { data: await where(), summary: 'Went back', tutorial: editor.path };
+    return { data: await where(), summary: { key: 'activity.wentBack' }, tutorial: editor.path };
   },
 
   async start_recording(_args, context) {
-    if (!canRecord) throw new Error(`${NO_RECORDING}.`);
+    if (!canRecord) throw new Error(`${noRecording()}.`);
     const editor = editorOf(context);
     await editor.record(true);
     if (!editor.recording()) {
@@ -423,7 +431,7 @@ export const tools: Record<string, Tool> = {
         steps: guideOf(editor).steps.length,
         page: editor.page()?.url ?? null,
       },
-      summary: 'Started recording',
+      summary: { key: 'activity.startedRecording' },
       tutorial: editor.path,
     };
   },
@@ -435,13 +443,13 @@ export const tools: Record<string, Tool> = {
     const guide = guideOf(editor);
     return {
       data: { recording: false, steps: guide.steps.length, last_step: lastStep(guide) },
-      summary: `Stopped recording · ${guide.steps.length} steps`,
+      summary: { key: 'activity.stoppedRecording', params: { count: guide.steps.length } },
       tutorial: editor.path,
     };
   },
 
   async capture_step(args, context) {
-    if (!canRecord) throw new Error(`${NO_RECORDING}.`);
+    if (!canRecord) throw new Error(`${noRecording()}.`);
     const editor = editorOf(context);
     await showSite(editor);
     const ref = text(args, 'ref')?.trim();
@@ -454,12 +462,15 @@ export const tools: Record<string, Tool> = {
       markerTitle: text(args, 'marker_title') ?? target?.name,
       markerText: text(args, 'marker_text'),
     });
-    editor.change(next, 'Capture step');
+    editor.change(next, 'history.captureStep');
     const step = lastStep(next);
     if (next.steps.at(-1)) editor.select(next.steps.at(-1)!.id);
     return {
       data: { step },
-      summary: `Captured step ${step?.number ?? ''} · ${step?.title ?? ''}`,
+      summary: {
+        key: 'activity.capturedStep',
+        params: { number: step?.number ?? next.steps.length, title: step?.title ?? '' },
+      },
       tutorial: editor.path,
     };
   },
@@ -483,11 +494,11 @@ export const tools: Record<string, Tool> = {
         ...(duration !== undefined ? { durationMs: clampDuration(duration) } : {}),
         ...(transition ? { transition } : {}),
       }),
-      'Edit step',
+      'history.editStep',
     );
     return {
       data: { step },
-      summary: `Edited step ${index + 1} · ${step.title}`,
+      summary: { key: 'activity.editedStep', params: { number: index + 1, title: step.title } },
       tutorial: editor.path,
     };
   },
@@ -503,11 +514,11 @@ export const tools: Record<string, Tool> = {
         const added = addMarker(current, point);
         return editMarker(added.step, added.id, { title, body: text(args, 'text')?.trim() ?? '' });
       },
-      'Add marker',
+      'history.addMarker',
     );
     return {
       data: { step },
-      summary: `Added the marker “${title}” to step ${index + 1}`,
+      summary: { key: 'activity.addedMarker', params: { title, number: index + 1 } },
       tutorial: editor.path,
     };
   },
@@ -532,11 +543,11 @@ export const tools: Record<string, Tool> = {
         if (point) edited = moveMarker(edited, marker.id, point);
         return edited;
       },
-      'Edit marker',
+      'history.editMarker',
     );
     return {
       data: { step },
-      summary: `Edited a marker of step ${index + 1}`,
+      summary: { key: 'activity.editedMarker', params: { number: index + 1 } },
       tutorial: editor.path,
     };
   },
@@ -550,11 +561,11 @@ export const tools: Record<string, Tool> = {
       editor,
       args.step,
       (current) => removeMarker(current, marker.id),
-      'Delete marker',
+      'history.deleteMarker',
     );
     return {
       data: { step },
-      summary: `Removed a marker of step ${index + 1}`,
+      summary: { key: 'activity.removedMarker', params: { number: index + 1 } },
       tutorial: editor.path,
     };
   },
@@ -567,13 +578,13 @@ export const tools: Record<string, Tool> = {
     if (!Number.isInteger(to) || to < 0 || to >= guide.steps.length) {
       throw new Error(`to is a step number from 1 to ${guide.steps.length}.`);
     }
-    editor.change(moveStep(guide, index, to), 'Move step');
+    editor.change(moveStep(guide, index, to), 'history.moveStep');
     const next = guideOf(editor);
     return {
       data: {
         steps: next.steps.map((step, position) => ({ number: position + 1, title: step.title })),
       },
-      summary: `Moved step ${index + 1} to ${to + 1}`,
+      summary: { key: 'activity.movedStep', params: { from: index + 1, to: to + 1 } },
       tutorial: editor.path,
     };
   },
@@ -582,12 +593,12 @@ export const tools: Record<string, Tool> = {
     const editor = editorOf(context);
     const guide = guideOf(editor);
     const { step, index } = stepAt(guide, args.step);
-    editor.change(removeStep(guide, step.id), 'Delete step');
+    editor.change(removeStep(guide, step.id), 'history.deleteStep');
     const next = guideOf(editor);
     editor.select(next.steps[Math.min(index, next.steps.length - 1)]?.id ?? null);
     return {
       data: { deleted: index + 1, steps: next.steps.length },
-      summary: `Deleted step ${index + 1} · ${step.title}`,
+      summary: { key: 'activity.deletedStep', params: { number: index + 1, title: step.title } },
       tutorial: editor.path,
     };
   },
@@ -596,8 +607,13 @@ export const tools: Record<string, Tool> = {
     const editor = editorOf(context);
     const label = editor.undo();
     return {
-      data: { undone: label ?? null, steps: guideOf(editor).steps.length },
-      summary: label ? `Undid ${label.toLowerCase()}` : 'Nothing to undo',
+      data: {
+        undone: label && isMessageKey(label) ? t(label) : (label ?? null),
+        steps: guideOf(editor).steps.length,
+      },
+      summary: label
+        ? { key: 'activity.undid', params: { action: label } }
+        : { key: 'activity.nothingToUndo' },
       tutorial: editor.path,
     };
   },
@@ -641,7 +657,7 @@ export const tools: Record<string, Tool> = {
     const published = path || editor?.path || null;
     return {
       data: { tutorial: published, published_to: destination },
-      summary: `Published to ${destination}`,
+      summary: { key: 'activity.published', params: { folder: destination } },
       tutorial: published,
     };
   },
@@ -656,7 +672,7 @@ export const tools: Record<string, Tool> = {
     const exported = path || open?.path || null;
     return {
       data: { tutorial: exported, archive: target },
-      summary: `Exported a ZIP to ${target}`,
+      summary: { key: 'activity.exported', params: { file: target } },
       tutorial: exported,
     };
   },

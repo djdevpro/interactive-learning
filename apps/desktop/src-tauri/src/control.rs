@@ -50,9 +50,11 @@ pub struct Reply {
     images: Vec<String>,
     #[serde(default)]
     error: String,
-    /// A sentence for the journal, such as `Created “Pay an invoice”`.
+    /// A sentence of the catalog of the interface with its parameters, such as
+    /// `{ "key": "activity.createdTutorial", "params": { "title": "Pay an invoice" } }`, which
+    /// the journal shows in the language of the day.
     #[serde(default)]
-    summary: String,
+    summary: Value,
     /// The tutorial the call worked on.
     #[serde(default)]
     tutorial: Option<String>,
@@ -66,7 +68,8 @@ pub struct Activity {
     agent: String,
     tool: String,
     ok: bool,
-    summary: String,
+    /// The sentence of the catalog, or the error the agent got, as text.
+    summary: Value,
     tutorial: Option<String>,
 }
 
@@ -338,7 +341,7 @@ fn note(app: &AppHandle, control: &Control, agent: &str, tool: &str, reply: &Rep
         summary: if reply.ok {
             reply.summary.clone()
         } else {
-            reply.error.clone()
+            Value::String(reply.error.clone())
         },
         tutorial: reply.tutorial.clone(),
     };
@@ -429,7 +432,7 @@ mod tests {
     fn turns_replies_into_results() {
         let reply: Reply = serde_json::from_value(json!({
             "ok": true, "data": { "steps": 2 }, "images": ["data:image/jpeg;base64,AAAA", "not an image"],
-            "summary": "Recorded a step"
+            "summary": { "key": "activity.recordedStep", "params": { "number": 1, "title": "Pay" } }
         }))
         .unwrap();
         let result = result_of(reply);

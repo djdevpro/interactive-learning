@@ -1,6 +1,14 @@
 import { reactive, shallowRef } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import {
+  formatMegabytes,
+  matchLocale,
+  resolveLocale,
+  setLocale,
+  t,
+  type LanguageChoice,
+} from './i18n';
 
 /** What the creator chose in Settings, kept by the studio in its own folder. */
 export interface Settings {
@@ -8,6 +16,7 @@ export interface Settings {
   agents: boolean;
   /** The library folder, when it is not the default one. */
   library: string | null;
+  language: LanguageChoice;
 }
 
 /** How this copy of the studio installs a new version. */
@@ -40,10 +49,36 @@ export interface UpdateCheck {
   releases: string;
 }
 
-export type SettingsTab = 'updates' | 'mcp' | 'library' | 'shortcuts';
+export type SettingsTab = 'general' | 'updates' | 'mcp' | 'library' | 'shortcuts';
 
 export const settings = shallowRef<Settings | null>(null);
 export const info = shallowRef<AppInfo | null>(null);
+/** The language of the computer, such as `fr-FR`, which `auto` follows. */
+export const systemLocale = shallowRef('en');
+
+/**
+ * Speaks the chosen language from the first screen on: the one of Settings, or the language of
+ * the computer as the system gives it, or as the webview reports it when the system says nothing.
+ */
+export async function startLanguage(): Promise<void> {
+  try {
+    const [stored, system] = await Promise.all([
+      loadSettings(),
+      invoke<string>('system_locale').catch(() => navigator.language),
+    ]);
+    systemLocale.value = system;
+    setLocale(resolveLocale(stored.language, system));
+  } catch {
+    systemLocale.value = navigator.language;
+    setLocale(matchLocale(navigator.language));
+  }
+}
+
+/** Changes the language at once, and keeps the choice for the next starts. */
+export async function chooseLanguage(choice: LanguageChoice): Promise<void> {
+  setLocale(resolveLocale(choice, systemLocale.value));
+  await saveSettings({ language: choice });
+}
 
 export async function loadSettings(): Promise<Settings> {
   settings.value = await invoke<Settings>('settings_read');
@@ -79,7 +114,7 @@ export const update = reactive({
 
 function messageOf(cause: unknown): string {
   if (cause instanceof Error) return cause.message;
-  return typeof cause === 'string' && cause ? cause : 'Something went wrong.';
+  return typeof cause === 'string' && cause ? cause : t('common.failed');
 }
 
 export const busyUpdating = () =>
@@ -126,7 +161,7 @@ export async function installUpdate(): Promise<void> {
   }
 }
 
-/** `2.1 MB`, the size of a download. */
+/** `2.1 MB` or `2,1 Mo`, the size of a download. */
 export function megabytes(bytes: number): string {
-  return `${(bytes / 1_000_000).toFixed(1)} MB`;
+  return formatMegabytes(bytes);
 }

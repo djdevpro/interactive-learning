@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { GuideAsset, GuideStep, Point } from '@interactive-learning/protocol';
 import Icon from './Icon.vue';
+import { t } from '../i18n';
 
 /**
  * The screenshot of the selected step, on the stage of the viewer. A click adds a marker,
@@ -22,6 +23,8 @@ const emit = defineEmits<{
   select: [id: string | null];
   remove: [id: string];
   scroll: [top: number];
+  menu: [event: MouseEvent, point: Point];
+  'marker-menu': [event: MouseEvent, id: string];
 }>();
 
 const scale = ref<number | 'fit'>('fit');
@@ -71,6 +74,8 @@ function place(event: MouseEvent): void {
 }
 
 function grab(id: string, event: PointerEvent): void {
+  // The second button opens the menu of the marker; only the first one drags it.
+  if (event.button !== 0) return;
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   dragging = { id, moved: false };
   emit('select', id);
@@ -111,7 +116,7 @@ function nudge(id: string, point: Point, event: KeyboardEvent): void {
 }
 
 function grabFrame(event: PointerEvent): void {
-  if (!frame.value) return;
+  if (!frame.value || event.button !== 0) return;
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   frameDrag = { offset: pointAt(event).y - frame.value.y };
 }
@@ -149,6 +154,11 @@ async function reveal(): Promise<void> {
   area.value.scrollTop = Math.max(0, middle - area.value.clientHeight / 2 + 40);
 }
 
+/** The menu of the screenshot, at the point of the page under the pointer. */
+function screenMenu(event: MouseEvent): void {
+  emit('menu', event, pointAt(event));
+}
+
 function zoomBy(direction: 1 | -1): void {
   const natural = props.asset?.width ?? 1280;
   const current = shownWidth.value / natural;
@@ -182,6 +192,7 @@ defineExpose({ zoomBy, fit: () => (scale.value = 'fit') });
           class="screen"
           :style="{ aspectRatio: asset ? `${asset.width} / ${asset.height}` : '16 / 10' }"
           @click="place"
+          @contextmenu="screenMenu"
         >
           <img class="screen-image" :src="image" alt="" draggable="false" data-surface="1" />
 
@@ -195,12 +206,12 @@ defineExpose({ zoomBy, fit: () => (scale.value = 'fit') });
               class="on-screen-handle"
               role="slider"
               tabindex="0"
-              aria-label="Part of the page on screen"
+              :aria-label="t('canvas.onScreenLabel')"
               aria-orientation="vertical"
               :aria-valuenow="Math.round(frame.y * 100)"
               aria-valuemin="0"
               aria-valuemax="100"
-              title="Drag to change what the viewer sees of the page"
+              :title="t('canvas.onScreenTitle')"
               @pointerdown.stop="grabFrame"
               @pointermove="dragFrame"
               @pointerup="releaseFrame"
@@ -208,7 +219,7 @@ defineExpose({ zoomBy, fit: () => (scale.value = 'fit') });
               @keydown="frameKey"
               @click.stop
             >
-              <Icon name="frame" :size="14" />On screen
+              <Icon name="frame" :size="14" />{{ t('canvas.onScreen') }}
             </span>
           </div>
 
@@ -222,13 +233,20 @@ defineExpose({ zoomBy, fit: () => (scale.value = 'fit') });
               left: `${positionOf(marker.id, marker).x * 100}%`,
               top: `${positionOf(marker.id, marker).y * 100}%`,
             }"
-            :aria-label="`Marker ${firstNumber + index}${marker.title ? `: ${marker.title}` : ''}`"
-            :title="index === 0 && step.cursor ? 'The cursor clicks here' : 'Drag to move'"
+            :aria-label="
+              marker.title
+                ? t('canvas.markerTitled', { number: firstNumber + index, title: marker.title })
+                : t('canvas.marker', { number: firstNumber + index })
+            "
+            :title="
+              index === 0 && step.cursor ? t('canvas.cursorClicksHere') : t('canvas.dragToMove')
+            "
             @pointerdown.stop="grab(marker.id, $event)"
             @pointermove="drag"
             @pointerup="release"
             @pointercancel="release"
             @keydown="nudge(marker.id, marker, $event)"
+            @contextmenu.stop="emit('marker-menu', $event, marker.id)"
             @click.stop
           >
             {{ firstNumber + index }}
@@ -237,19 +255,29 @@ defineExpose({ zoomBy, fit: () => (scale.value = 'fit') });
       </div>
     </div>
 
-    <div class="wall-tools" role="toolbar" aria-label="Zoom">
-      <button type="button" class="button icon small quiet" title="Zoom out" @click="zoomBy(-1)">
+    <div class="wall-tools" role="toolbar" :aria-label="t('canvas.zoom')">
+      <button
+        type="button"
+        class="button icon small quiet"
+        :title="t('canvas.zoomOut')"
+        @click="zoomBy(-1)"
+      >
         <Icon name="zoomOut" :size="16" />
       </button>
       <button
         type="button"
         class="zoom-value tabular"
-        title="Fit to the window"
+        :title="t('canvas.fit')"
         @click="scale = 'fit'"
       >
         {{ zoomLabel }}
       </button>
-      <button type="button" class="button icon small quiet" title="Zoom in" @click="zoomBy(1)">
+      <button
+        type="button"
+        class="button icon small quiet"
+        :title="t('canvas.zoomIn')"
+        @click="zoomBy(1)"
+      >
         <Icon name="zoomIn" :size="16" />
       </button>
     </div>

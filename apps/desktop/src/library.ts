@@ -4,6 +4,7 @@ import {
   type GuideDocument,
   type GuideViewport,
 } from '@interactive-learning/protocol';
+import { t } from './i18n';
 
 /** A tutorial as the library lists it, read from its folder. */
 export interface TutorialEntry {
@@ -119,7 +120,7 @@ export const library = {
     await this.writeTutorial(copy, {
       ...guide,
       id: crypto.randomUUID(),
-      title: `${guide.title} copy`,
+      title: t('library.copyOf', { title: guide.title }),
       updatedAt: new Date().toISOString(),
     });
     return copy;

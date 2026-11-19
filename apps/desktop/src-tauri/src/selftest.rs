@@ -102,8 +102,12 @@ pub fn run(app: AppHandle, folder: String) {
         let _ = app.emit("selftest-library-view", ());
         pause(2_500).await;
         report.push(save_view(&app, STUDIO, &format!("{folder}/library.png")).await);
+        // The menu of a right click on a tutorial.
+        let _ = app.emit("selftest-menu", ());
+        pause(800).await;
+        report.push(save_view(&app, STUDIO, &format!("{folder}/library-menu.png")).await);
         // Settings, from the button at the bottom left of the library.
-        for tab in ["updates", "mcp", "library"] {
+        for tab in ["general", "updates", "mcp", "library"] {
             let _ = app.emit("selftest-settings", tab);
             pause(if tab == "updates" { 4_000 } else { 1_500 }).await;
             report.push(save_view(&app, STUDIO, &format!("{folder}/settings-{tab}.png")).await);

@@ -6,6 +6,7 @@ import type {
   Point,
 } from '@interactive-learning/protocol';
 import { withoutUnusedAssets } from '@interactive-learning/editor/draft';
+import { formatSeconds } from './i18n';
 
 /** Bounds of a step's running time, set on the timeline or in the inspector. */
 export const MIN_DURATION_MS = 1000;
@@ -155,8 +156,7 @@ export function scrollTo(step: GuideStep, top: number | null): GuideStep {
   };
 }
 
-/** `4 s`, `4.5 s`: a running time as the inspector and the timeline show it. */
+/** `4 s`, `4.5 s` or `4,5 s`: a running time as the inspector and the timeline show it. */
 export function seconds(ms: number): string {
-  const value = Math.round(ms / 100) / 10;
-  return `${Number.isInteger(value) ? value : value.toFixed(1)} s`;
+  return formatSeconds(ms);
 }

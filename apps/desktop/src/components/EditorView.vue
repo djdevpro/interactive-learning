@@ -8,6 +8,7 @@ import {
   sanitizeSourceUrl,
   type GuideDocument,
   type GuideStep,
+  type Point,
 } from '@interactive-learning/protocol';
 import { markerNumber } from '@interactive-learning/editor/draft';
 import Icon from './Icon.vue';
@@ -19,7 +20,9 @@ import Timeline from './Timeline.vue';
 import { presence } from '../agent/bridge';
 import type { EditorAgent } from '../agent/types';
 import { createHistory } from '../history';
-import { canRecord, NO_RECORDING, revealLabel } from '../platform';
+import { isMessageKey, t, type MessageKey } from '../i18n';
+import { buttonMenu, contextMenu, type MenuEntry } from '../menus';
+import { canRecord, noRecording, revealLabel } from '../platform';
 import { createRecorder } from '../recorder';
 import {
   baselineOf,
@@ -100,11 +103,11 @@ function imageOf(step: GuideStep | undefined): string {
   return src.startsWith('data:') ? src : tutorialUrl(props.path, src);
 }
 
-function change(next: GuideDocument, label: string): void {
+function change(next: GuideDocument, label: MessageKey): void {
   history.change(next, label);
 }
 
-function changeStep(stepId: string, edit: (step: GuideStep) => GuideStep, label: string): void {
+function changeStep(stepId: string, edit: (step: GuideStep) => GuideStep, label: MessageKey): void {
   if (guide.value) change(updateStep(guide.value, stepId, edit), label);
 }
 
@@ -114,7 +117,7 @@ onMounted(async () => {
   try {
     history.open(await library.readTutorial(props.path));
   } catch (cause) {
-    warn(cause, 'This tutorial could not be opened.');
+    warn(cause, t('editor.openFailed'));
     emit('close');
     return;
   }
@@ -211,12 +214,12 @@ async function go(target = address.value): Promise<void> {
   try {
     await navigate(target);
   } catch (cause) {
-    warn(cause, 'This address could not be opened.');
+    warn(cause, t('editor.addressFailed'));
   }
 }
 
 function browse(action: 'back' | 'forward' | 'reload'): void {
-  void invoke('site_history', { action }).catch((cause) => warn(cause, 'The page did not answer.'));
+  void invoke('site_history', { action }).catch((cause) => warn(cause, t('editor.pageSilent')));
 }
 
 // Captures. The engine draws a full page from its top, which would flash in the window: a still
@@ -266,12 +269,12 @@ const recorder = createRecorder({
   capture: captureBaseline,
   read: () => guide.value!,
   write: async (next) => {
-    change(next, 'Record step');
+    change(next, 'history.recordStep');
     const last = next.steps.at(-1);
     if (last) select(last.id);
   },
-  announce: notify,
-  fail: (cause) => warn(cause, 'The step could not be recorded.'),
+  announce: (number, title) => notify(t('editor.stepAnnounce', { number, title })),
+  fail: (cause) => warn(cause, t('editor.recordFailed')),
 });
 const recording = recorder.active;
 
@@ -279,11 +282,11 @@ async function toggleRecording(): Promise<void> {
   if (recording.value) {
     await recorder.stop();
     await prune();
-    notify('Recording stopped');
+    notify(t('editor.recordingStopped'));
   } else {
     if (!hasPage.value) await go(address.value || site.value?.address || '');
     await recorder.start();
-    notify('Recording · each click becomes a step');
+    notify(t('editor.recordingStarted'));
   }
 }
 
@@ -300,7 +303,7 @@ async function captureNow(): Promise<void> {
   try {
     await recorder.captureNow();
   } catch (cause) {
-    warn(cause, 'The capture failed.');
+    warn(cause, t('editor.captureFailed'));
   } finally {
     busy.value = false;
   }
@@ -312,7 +315,7 @@ async function retake(): Promise<void> {
   if (!step || !guide.value) return;
   if (!hasPage.value) {
     show('recorder');
-    notify('Open the page of this step, then retake it from the properties');
+    notify(t('editor.openPageToRetake'));
     return;
   }
   busy.value = true;
@@ -332,11 +335,11 @@ async function retake(): Promise<void> {
           ...(url ? { url } : {}),
         },
       })),
-      'Retake screenshot',
+      'history.retake',
     );
-    notify('Screenshot replaced');
+    notify(t('editor.screenshotReplaced'));
   } catch (cause) {
-    warn(cause, 'The capture failed.');
+    warn(cause, t('editor.captureFailed'));
   } finally {
     busy.value = false;
   }
@@ -451,7 +454,7 @@ watch(stage, async (next, previous) => {
   if (next !== 'recorder' && recording.value) {
     await recorder.stop();
     await prune();
-    notify('Recording stopped');
+    notify(t('editor.recordingStopped'));
   }
 });
 
@@ -483,18 +486,18 @@ function openAddress(): void {
 // Changes from the timeline, the canvas and the inspector.
 
 function onMove(from: number, to: number): void {
-  if (guide.value) change(moveStep(guide.value, from, to), 'Move step');
+  if (guide.value) change(moveStep(guide.value, from, to), 'history.moveStep');
 }
 
 function onDuration(stepId: string, ms: number): void {
-  if (guide.value) change(setDuration(guide.value, stepId, ms), 'Change duration');
+  if (guide.value) change(setDuration(guide.value, stepId, ms), 'history.duration');
 }
 
 function onTransition(stepId: string): void {
   changeStep(
     stepId,
     (step) => ({ ...step, transition: step.transition === 'cut' ? 'fade' : 'cut' }),
-    'Change transition',
+    'history.transition',
   );
 }
 
@@ -502,19 +505,19 @@ function onAddMarker(point: { x: number; y: number }): void {
   const step = selectedStep.value;
   if (!step) return;
   const added = addMarker(step, point);
-  changeStep(step.id, () => added.step, 'Add marker');
+  changeStep(step.id, () => added.step, 'history.addMarker');
   selectedMarker.value = added.id;
 }
 
 function onMoveMarker(id: string, point: { x: number; y: number }): void {
   const step = selectedStep.value;
-  if (step) changeStep(step.id, (current) => moveMarker(current, id, point), 'Move marker');
+  if (step) changeStep(step.id, (current) => moveMarker(current, id, point), 'history.moveMarker');
 }
 
 function onRemoveMarker(id: string): void {
   const step = selectedStep.value;
   if (!step) return;
-  changeStep(step.id, (current) => removeMarker(current, id), 'Delete marker');
+  changeStep(step.id, (current) => removeMarker(current, id), 'history.deleteMarker');
   if (selectedMarker.value === id) selectedMarker.value = null;
 }
 
@@ -522,27 +525,27 @@ function onRemoveStep(): void {
   const step = selectedStep.value;
   if (!step || !guide.value) return;
   const index = selectedIndex.value;
-  change(removeStep(guide.value, step.id), 'Delete step');
+  change(removeStep(guide.value, step.id), 'history.deleteStep');
   select(steps.value[Math.min(index, steps.value.length - 1)]?.id ?? null);
-  notify('Step deleted', { label: 'Undo', run: undo });
+  notify(t('editor.stepDeleted'), { label: t('common.undo'), run: undo });
 }
 
 function onDuplicateStep(): void {
   const step = selectedStep.value;
   if (!step || !guide.value) return;
-  change(duplicateStep(guide.value, step.id), 'Duplicate step');
+  change(duplicateStep(guide.value, step.id), 'history.duplicateStep');
   selectBy(1);
 }
 
 function undo(): void {
   const label = history.undo();
-  if (label) notify(`${label} undone`);
+  if (label) notify(t('editor.undone', { action: actionName(label) }));
   if (!steps.value.some((step) => step.id === selectedId.value)) select(steps.value[0]?.id ?? null);
 }
 
 function redo(): void {
   const label = history.redo();
-  if (label) notify(`${label} redone`);
+  if (label) notify(t('editor.redone', { action: actionName(label) }));
 }
 
 // Publishing and export.
@@ -550,16 +553,17 @@ function redo(): void {
 /** Publishes into the project folder of the site and gives that folder back. */
 async function publishNow(): Promise<string> {
   if (!site.value?.publishTo) {
-    throw new Error(
-      'This site publishes to no folder yet. Link the folder of its web project first, such as public/guides.',
-    );
+    throw new Error(t('editor.noPublishFolder'));
   }
   busy.value = true;
   try {
     await history.flush();
     const destination = await library.publish(props.path);
     publishedAt.value = new Date().toISOString();
-    notify('Published', { label: 'Show', run: () => void library.reveal(destination, true) });
+    notify(t('editor.published'), {
+      label: t('common.show'),
+      run: () => void library.reveal(destination, true),
+    });
     return destination;
   } finally {
     busy.value = false;
@@ -571,7 +575,7 @@ async function publish(): Promise<void> {
   try {
     await publishNow();
   } catch (cause) {
-    warn(cause, 'The tutorial could not be published.');
+    warn(cause, t('editor.publishFailed'));
   }
 }
 
@@ -579,7 +583,7 @@ async function exportZip(): Promise<void> {
   const name = partsOf(props.path).tutorial || 'tutorial';
   const target = await save({
     defaultPath: `${name}.zip`,
-    filters: [{ name: 'Tutorial archive', extensions: ['zip'] }],
+    filters: [{ name: t('editor.archiveFilter'), extensions: ['zip'] }],
   }).catch(() => null);
   if (target) await exportTo(target);
 }
@@ -588,20 +592,158 @@ async function exportZip(): Promise<void> {
 async function exportNow(target: string): Promise<void> {
   await history.flush();
   await library.exportZip(props.path, target);
-  notify('ZIP saved', { label: 'Show', run: () => void library.reveal(target, true) });
+  notify(t('editor.zipSaved'), {
+    label: t('common.show'),
+    run: () => void library.reveal(target, true),
+  });
 }
 
 async function exportTo(target: string): Promise<void> {
   try {
     await exportNow(target);
   } catch (cause) {
-    warn(cause, 'The export failed.');
+    warn(cause, t('editor.exportFailed'));
   }
 }
 
-function hideMenus(): void {
-  for (const menu of document.querySelectorAll<HTMLElement>('.menu:popover-open'))
-    menu.hidePopover();
+/** The name of an action of the undo history, in the language of the studio. */
+function actionName(label: string): string {
+  return isMessageKey(label) ? t(label) : label;
+}
+
+// Menus: the More button, and the right click on a step, a marker or the screenshot.
+
+function moreEntries(): MenuEntry[] {
+  return [
+    {
+      label: t('editor.exportZip'),
+      icon: 'archive',
+      disabled: !steps.value.length,
+      run: () => void exportZip(),
+    },
+    { label: revealLabel(), icon: 'folder', run: () => void library.reveal(props.path) },
+    { separator: true },
+    { label: t('common.settings'), icon: 'settings', run: () => emit('settings') },
+  ];
+}
+
+function stepEntries(stepId: string): MenuEntry[] {
+  const index = steps.value.findIndex((step) => step.id === stepId);
+  const step = steps.value[index];
+  if (!step || !guide.value) return [];
+  const start = stepStarts(guide.value).starts[index] ?? 0;
+  return [
+    { label: t('menu.showStep'), icon: 'edit', run: () => pickStep(stepId) },
+    {
+      label: t('menu.playFromHere'),
+      icon: 'play',
+      run: () => {
+        select(stepId);
+        playFrom(start);
+      },
+    },
+    { separator: true },
+    {
+      label: t('library.duplicate'),
+      icon: 'copy',
+      keys: 'Ctrl+D',
+      run: () => {
+        select(stepId);
+        onDuplicateStep();
+      },
+    },
+    {
+      label: t('menu.moveUp'),
+      icon: 'up',
+      keys: 'Alt+↑',
+      disabled: index === 0,
+      run: () => onMove(index, index - 1),
+    },
+    {
+      label: t('menu.moveDown'),
+      icon: 'down',
+      keys: 'Alt+↓',
+      disabled: index === steps.value.length - 1,
+      run: () => onMove(index, index + 1),
+    },
+    ...(index > 0
+      ? [
+          {
+            label: step.transition === 'cut' ? t('menu.fadeIn') : t('menu.cutIn'),
+            icon: step.transition === 'cut' ? ('fade' as const) : ('cut' as const),
+            run: () => onTransition(stepId),
+          },
+        ]
+      : []),
+    { separator: true },
+    {
+      label: t('inspector.deleteStep'),
+      icon: 'trash',
+      danger: true,
+      keys: t('keys.delete'),
+      run: () => {
+        select(stepId);
+        onRemoveStep();
+      },
+    },
+  ];
+}
+
+function markerEntries(stepId: string, markerId: string): MenuEntry[] {
+  return [
+    { label: t('menu.nameMarker'), icon: 'text', run: () => pickMarker(stepId, markerId) },
+    { separator: true },
+    {
+      label: t('menu.deleteMarker'),
+      icon: 'trash',
+      danger: true,
+      keys: t('keys.delete'),
+      run: () => {
+        select(stepId);
+        onRemoveMarker(markerId);
+      },
+    },
+  ];
+}
+
+/** The screenshot of the selected step, at the point under the pointer. */
+function screenEntries(point: Point): MenuEntry[] {
+  const step = selectedStep.value;
+  if (!step) return [];
+  const partial = Boolean(step.viewport && step.viewport.height < 0.999);
+  return [
+    { label: t('menu.addMarkerHere'), icon: 'marker', run: () => onAddMarker(point) },
+    {
+      label: t('inspector.retake'),
+      icon: 'retake',
+      disabled: !(canRecord && hasPage.value),
+      run: () => void retake(),
+    },
+    ...(partial
+      ? [{ label: t('inspector.wholePage'), icon: 'fit' as const, run: onWholePage }]
+      : []),
+    { label: t('canvas.fit'), icon: 'frame', run: () => canvas.value?.fit() },
+    { separator: true },
+    { label: t('library.duplicate'), icon: 'copy', keys: 'Ctrl+D', run: onDuplicateStep },
+    { label: t('inspector.deleteStep'), icon: 'trash', danger: true, run: onRemoveStep },
+  ];
+}
+
+function onStepMenu(event: MouseEvent, stepId: string): void {
+  const number = steps.value.findIndex((step) => step.id === stepId) + 1;
+  contextMenu(event, stepEntries(stepId), t('menu.ofStep', { number }));
+}
+
+function onMarkerMenu(event: MouseEvent, stepId: string, markerId: string): void {
+  const index = steps.value.findIndex((step) => step.id === stepId);
+  const position = steps.value[index]?.annotations.findIndex((marker) => marker.id === markerId);
+  const first = guide.value ? markerNumber(guide.value.steps, Math.max(0, index)) : 1;
+  const number = first + Math.max(0, position ?? 0);
+  contextMenu(event, markerEntries(stepId, markerId), t('menu.ofMarker', { number }));
+}
+
+function onScreenMenu(event: MouseEvent, point: Point): void {
+  contextMenu(event, screenEntries(point), t('menu.ofScreen'));
 }
 
 // Keyboard. Text fields keep their own keys; the rest drives the editor.
@@ -730,26 +872,26 @@ function pickMarker(stepId: string, markerId: string): void {
   selectedMarker.value = markerId;
 }
 
-function onInspectorStep(edit: (step: GuideStep) => GuideStep, label: string): void {
+function onInspectorStep(edit: (step: GuideStep) => GuideStep, label: MessageKey): void {
   const step = selectedStep.value;
   if (step) changeStep(step.id, edit, label);
 }
 
-function onInspectorGuide(edit: (guide: GuideDocument) => GuideDocument, label: string): void {
+function onInspectorGuide(edit: (guide: GuideDocument) => GuideDocument, label: MessageKey): void {
   if (guide.value) change(edit(guide.value), label);
 }
 
 function onWholePage(): void {
   const step = selectedStep.value;
-  if (step) changeStep(step.id, (current) => scrollTo(current, null), 'Show whole page');
+  if (step) changeStep(step.id, (current) => scrollTo(current, null), 'history.wholePage');
 }
 </script>
 
 <template>
   <div class="editor" :data-label="label">
     <header class="editor-bar">
-      <button type="button" class="button quiet" title="Back to the library" @click="close">
-        <Logo :size="20" />Library
+      <button type="button" class="button quiet" :title="t('editor.backToLibrary')" @click="close">
+        <Logo :size="20" />{{ t('common.library') }}
       </button>
       <button
         type="button"
@@ -759,25 +901,25 @@ function onWholePage(): void {
         :disabled="!canRecord"
         :title="
           !canRecord
-            ? NO_RECORDING
+            ? noRecording()
             : recording
-              ? 'Stop recording (Ctrl+R)'
-              : 'Record the site (Ctrl+R)'
+              ? t('editor.stopRecording')
+              : t('editor.recordSite')
         "
         @click="recordNow"
       >
         <span class="record-dot" aria-hidden="true"></span>
-        {{ recording ? `Recording · ${steps.length}` : 'Record' }}
+        {{ recording ? t('editor.recordingCount', { count: steps.length }) : t('editor.record') }}
       </button>
       <span class="bar-rule" aria-hidden="true"></span>
-      <nav class="crumbs" aria-label="Place in the library">
+      <nav class="crumbs" :aria-label="t('editor.place')">
         <span class="crumb">{{ site?.name ?? '…' }}</span>
         <Icon name="right" :size="13" />
         <span class="crumb"
           ><span class="label-dot" aria-hidden="true"></span>{{ theme?.name ?? '…' }}</span
         >
         <Icon name="right" :size="13" />
-        <label class="visually-hidden" for="tutorial-name">Tutorial title</label>
+        <label class="visually-hidden" for="tutorial-name">{{ t('editor.tutorialTitle') }}</label>
         <input
           v-if="guide"
           id="tutorial-name"
@@ -787,7 +929,7 @@ function onWholePage(): void {
           @input="
             change(
               { ...guide, title: ($event.target as HTMLInputElement).value },
-              'Rename tutorial',
+              'history.renameTutorial',
             )
           "
         />
@@ -797,7 +939,7 @@ function onWholePage(): void {
         v-if="presence"
         class="agent-badge"
         role="status"
-        :title="`${presence.agent} is driving the studio. You can take over at any moment.`"
+        :title="t('common.agentDriving', { agent: presence.agent })"
       >
         <Icon name="spark" :size="13" />{{ presence.agent }}
       </span>
@@ -805,10 +947,10 @@ function onWholePage(): void {
         <Icon v-if="history.saving.value === 'saved'" name="check" :size="14" />
         {{
           history.saving.value === 'saved'
-            ? 'Saved'
+            ? t('editor.saved')
             : history.saving.value === 'pending'
-              ? 'Saving…'
-              : 'Not saved'
+              ? t('editor.saving')
+              : t('editor.notSaved')
         }}
       </span>
       <button
@@ -817,8 +959,8 @@ function onWholePage(): void {
         :disabled="!history.canUndo.value"
         :title="
           history.canUndo.value
-            ? `Undo ${history.undoLabel.value.toLowerCase()} (Ctrl+Z)`
-            : 'Nothing to undo'
+            ? t('editor.undoAction', { action: actionName(history.undoLabel.value) })
+            : t('editor.nothingToUndo')
         "
         @click="undo"
       >
@@ -830,8 +972,8 @@ function onWholePage(): void {
         :disabled="!history.canRedo.value"
         :title="
           history.canRedo.value
-            ? `Redo ${history.redoLabel.value.toLowerCase()} (Ctrl+Y)`
-            : 'Nothing to redo'
+            ? t('editor.redoAction', { action: actionName(history.redoLabel.value) })
+            : t('editor.nothingToRedo')
         "
         @click="redo"
       >
@@ -842,10 +984,10 @@ function onWholePage(): void {
         type="button"
         class="button primary"
         :disabled="busy || !steps.length"
-        :title="`Publish to ${site.publishTo}`"
+        :title="t('editor.publishTo', { folder: site.publishTo })"
         @click="publish"
       >
-        <Icon name="publish" :size="16" />Publish
+        <Icon name="publish" :size="16" />{{ t('editor.publish') }}
       </button>
       <button
         v-else
@@ -854,21 +996,17 @@ function onWholePage(): void {
         :disabled="!steps.length"
         @click="exportZip"
       >
-        <Icon name="archive" :size="16" />Export
+        <Icon name="archive" :size="16" />{{ t('editor.export') }}
       </button>
-      <button type="button" class="button icon quiet" title="More" popovertarget="editor-menu">
+      <button
+        type="button"
+        class="button icon quiet"
+        :title="t('editor.more')"
+        aria-haspopup="menu"
+        @click="buttonMenu($event, moreEntries(), t('editor.more'))"
+      >
         <Icon name="more" />
       </button>
-      <div id="editor-menu" popover class="menu" @click="hideMenus">
-        <button type="button" :disabled="!steps.length" @click="exportZip">
-          <Icon name="archive" />Export ZIP…
-        </button>
-        <button type="button" @click="library.reveal(props.path)">
-          <Icon name="folder" />{{ revealLabel }}
-        </button>
-        <hr />
-        <button type="button" @click="emit('settings')"><Icon name="settings" />Settings</button>
-      </div>
     </header>
 
     <div class="editor-body">
@@ -879,34 +1017,35 @@ function onWholePage(): void {
         :image-of="imageOf"
         @select="pickStep"
         @move="onMove"
+        @menu="onStepMenu"
       />
 
-      <section class="viewer" aria-label="Viewer">
+      <section class="viewer" :aria-label="t('editor.viewer')">
         <div class="viewer-bar">
-          <div class="segmented view-switch" role="group" aria-label="View">
+          <div class="segmented view-switch" role="group" :aria-label="t('editor.view')">
             <button
               type="button"
               :aria-pressed="view === 'recorder'"
-              title="The site, in the browser of the studio"
+              :title="t('editor.siteViewTitle')"
               @click="show('recorder')"
             >
-              <Icon name="globe" :size="14" />Site
+              <Icon name="globe" :size="14" />{{ t('editor.siteView') }}
             </button>
             <button
               type="button"
               :aria-pressed="view === 'canvas'"
               :disabled="!steps.length"
-              title="The selected step, to edit its markers and screen"
+              :title="t('editor.stepViewTitle')"
               @click="show('canvas')"
             >
-              <Icon name="edit" :size="14" />Step
+              <Icon name="edit" :size="14" />{{ t('editor.stepView') }}
             </button>
           </div>
           <div class="browser-nav">
             <button
               type="button"
               class="button icon small quiet"
-              title="Back"
+              :title="t('editor.back')"
               :disabled="!hasPage"
               @click="browse('back')"
             >
@@ -915,7 +1054,7 @@ function onWholePage(): void {
             <button
               type="button"
               class="button icon small quiet"
-              title="Forward"
+              :title="t('editor.forward')"
               :disabled="!hasPage"
               @click="browse('forward')"
             >
@@ -924,7 +1063,7 @@ function onWholePage(): void {
             <button
               type="button"
               class="button icon small quiet"
-              title="Reload"
+              :title="t('editor.reload')"
               :disabled="!hasPage"
               @click="browse('reload')"
             >
@@ -933,23 +1072,23 @@ function onWholePage(): void {
           </div>
           <form class="address" @submit.prevent="openAddress">
             <Icon name="globe" :size="14" />
-            <label class="visually-hidden" for="address">Address</label>
+            <label class="visually-hidden" for="address">{{ t('editor.address') }}</label>
             <input
               id="address"
               v-model="address"
-              placeholder="Address of the page"
+              :placeholder="t('editor.addressPlaceholder')"
               spellcheck="false"
             />
-            <span v-if="page?.loading" class="loading" aria-label="Loading"></span>
+            <span v-if="page?.loading" class="loading" :aria-label="t('editor.loading')"></span>
           </form>
           <button
             type="button"
             class="button small"
             :disabled="!canRecord || !hasPage || busy"
-            :title="canRecord ? 'Add the page as it is now' : NO_RECORDING"
+            :title="canRecord ? t('editor.captureTitle') : noRecording()"
             @click="captureNow"
           >
-            <Icon name="camera" :size="15" />Capture
+            <Icon name="camera" :size="15" />{{ t('editor.capture') }}
           </button>
         </div>
 
@@ -959,15 +1098,15 @@ function onWholePage(): void {
             <img v-if="still" ref="stillImage" class="site-still" :src="still" alt="" />
             <div v-if="!hasPage" class="browser-empty">
               <Icon name="globe" :size="30" />
-              <h2>Open the page to record</h2>
-              <p>Type its address above. Every click you make while recording becomes a step.</p>
+              <h2>{{ t('editor.emptyBrowserTitle') }}</h2>
+              <p>{{ t('editor.emptyBrowserBody') }}</p>
               <button
                 v-if="site?.address"
                 type="button"
                 class="button primary"
                 @click="go(site.address)"
               >
-                Open {{ site.address }}
+                {{ t('editor.openAddress', { address: site.address }) }}
               </button>
             </div>
           </div>
@@ -994,30 +1133,32 @@ function onWholePage(): void {
               @move="onMoveMarker"
               @select="selectedMarker = $event"
               @remove="onRemoveMarker"
+              @menu="onScreenMenu"
+              @marker-menu="(event, id) => onMarkerMenu(event, selectedStep!.id, id)"
               @scroll="
                 (top) =>
-                  changeStep(selectedStep!.id, (step) => scrollTo(step, top), 'Move visible part')
+                  changeStep(selectedStep!.id, (step) => scrollTo(step, top), 'history.visiblePart')
               "
             />
             <div v-else class="viewer-empty">
               <Icon name="route" :size="30" />
-              <h2>No step yet</h2>
+              <h2>{{ t('editor.noStepTitle') }}</h2>
               <template v-if="canRecord">
-                <p>Record the site. Each click you make becomes a step of this tutorial.</p>
+                <p>{{ t('editor.noStepBody') }}</p>
                 <button type="button" class="button record" @click="recordNow">
-                  <Icon name="record" :size="14" />Record
+                  <Icon name="record" :size="14" />{{ t('editor.record') }}
                 </button>
               </template>
-              <p v-else>{{ NO_RECORDING }}. Open a tutorial recorded there to edit it here.</p>
+              <p v-else>{{ t('editor.noRecordingHere', { reason: noRecording() }) }}</p>
             </div>
           </template>
         </div>
 
-        <footer class="transport" aria-label="Playback">
+        <footer class="transport" :aria-label="t('editor.playback')">
           <button
             type="button"
             class="button icon small quiet"
-            title="Previous step (←)"
+            :title="t('editor.previousStep')"
             :disabled="selectedIndex <= 0"
             @click="selectBy(-1)"
           >
@@ -1026,8 +1167,8 @@ function onWholePage(): void {
           <button
             type="button"
             class="button icon play-button"
-            :aria-label="playing ? 'Pause' : 'Play'"
-            :title="playing ? 'Pause (Space)' : 'Play from the playhead (Space)'"
+            :aria-label="playing ? t('editor.pause') : t('editor.play')"
+            :title="playing ? t('editor.pauseTitle') : t('editor.playTitle')"
             :disabled="!steps.length"
             @click="playing ? pause() : play()"
           >
@@ -1036,7 +1177,7 @@ function onWholePage(): void {
           <button
             type="button"
             class="button icon small quiet"
-            title="Next step (→)"
+            :title="t('editor.nextStep')"
             :disabled="selectedIndex >= steps.length - 1"
             @click="selectBy(1)"
           >
@@ -1047,7 +1188,7 @@ function onWholePage(): void {
           </p>
           <span class="transport-spacer"></span>
           <p v-if="selectedStep && stage === 'canvas'" class="transport-step tabular">
-            Step {{ selectedIndex + 1 }} of {{ steps.length }}
+            {{ t('editor.stepOf', { number: selectedIndex + 1, count: steps.length }) }}
           </p>
         </footer>
       </section>
@@ -1070,6 +1211,7 @@ function onWholePage(): void {
         @duplicate-step="onDuplicateStep"
         @retake="retake"
         @whole-page="onWholePage"
+        @marker-menu="(event, id) => selectedStep && onMarkerMenu(event, selectedStep.id, id)"
       />
     </div>
 
@@ -1088,6 +1230,8 @@ function onWholePage(): void {
       @transition="onTransition"
       @duplicate="onDuplicateStep"
       @remove="onRemoveStep"
+      @menu="onStepMenu"
+      @marker-menu="onMarkerMenu"
     />
   </div>
 </template>

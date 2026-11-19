@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { createGuide } from '@interactive-learning/protocol';
 import EditorView from './components/EditorView.vue';
+import ContextMenu from './components/ContextMenu.vue';
 import Icon from './components/Icon.vue';
 import LibraryView from './components/LibraryView.vue';
 import SettingsView from './components/SettingsView.vue';
 import { startBridge } from './agent/bridge';
 import type { AgentHost, EditorAgent } from './agent/types';
+import { t } from './i18n';
 import { library } from './library';
+import { closeMenu, keepsNativeMenu } from './menus';
 import { checkForUpdates, loadSettings, update, type SettingsTab } from './settings';
 import { dismiss, notify, toast } from './ui';
 
@@ -19,7 +22,7 @@ const UPDATE_CHECK_DELAY_MS = 4000;
 
 const opened = ref<{ path: string; startIn: 'record' | 'edit' } | null>(null);
 const screen = ref<'library' | 'settings'>('library');
-const settingsTab = ref<SettingsTab>('updates');
+const settingsTab = ref<SettingsTab>('general');
 const siteId = ref<string | null>(readSite());
 const editor = ref<InstanceType<typeof EditorView> | null>(null);
 const libraryView = ref<InstanceType<typeof LibraryView> | null>(null);
@@ -55,6 +58,9 @@ async function openSettings(tab?: SettingsTab): Promise<void> {
   opened.value = null;
   screen.value = 'settings';
 }
+
+// A menu belongs to the screen it was opened on.
+watch([opened, screen], () => closeMenu());
 
 // Tutorials an agent waits to see open in the editor.
 const waiting = new Map<
@@ -111,8 +117,8 @@ const host: AgentHost = {
 async function lookForUpdates(): Promise<void> {
   await checkForUpdates();
   if (update.phase !== 'available') return;
-  notify(`Interactive Learning Studio ${update.check?.latest?.version ?? ''} is available`, {
-    label: 'See',
+  notify(t('updates.toast', { version: update.check?.latest?.version ?? '' }), {
+    label: t('updates.see'),
     run: () => void openSettings('updates'),
   });
 }
@@ -150,11 +156,35 @@ async function selftest(): Promise<void> {
     await listen<string>('selftest-export', ({ payload }) => void editor.value?.exportTo(payload)),
     await listen('selftest-library-view', () => void editor.value?.close()),
     await listen<SettingsTab>('selftest-settings', ({ payload }) => void openSettings(payload)),
+    await listen('selftest-menu', () => {
+      // A right click on the first tutorial of the library.
+      const card = document.querySelector<HTMLElement>('.work:not(.add)');
+      const box = card?.getBoundingClientRect();
+      card?.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          button: 2,
+          clientX: (box?.left ?? 0) + 80,
+          clientY: (box?.top ?? 0) + 70,
+        }),
+      );
+    }),
   );
   await emit('selftest-ready');
 }
 
+/**
+ * The menu of the webview, with Back, Reload and Inspect, has no place in a desktop app: a right
+ * click shows the menu of what is under the pointer, and fields keep their Cut, Copy and Paste.
+ */
+function quietNativeMenu(event: MouseEvent): void {
+  if (!keepsNativeMenu(event.target)) event.preventDefault();
+}
+
 onMounted(async () => {
+  window.addEventListener('contextmenu', quietNativeMenu);
+  unlisten.push(() => window.removeEventListener('contextmenu', quietNativeMenu));
   unlisten.push(await startBridge(host));
   const preferences = await loadSettings().catch(() => null);
   if (preferences?.checkUpdates !== false) {
@@ -214,8 +244,15 @@ onUnmounted(() => {
     >
       {{ toast.action.label }}
     </button>
-    <button type="button" class="button icon small quiet" aria-label="Dismiss" @click="dismiss">
+    <button
+      type="button"
+      class="button icon small quiet"
+      :aria-label="t('common.dismiss')"
+      @click="dismiss"
+    >
       <Icon name="close" :size="14" />
     </button>
   </div>
+
+  <ContextMenu />
 </template>

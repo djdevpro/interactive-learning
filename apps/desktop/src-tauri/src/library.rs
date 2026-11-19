@@ -92,7 +92,10 @@ fn inside(root: &Path, relative: &str) -> Result<PathBuf, String> {
         .components()
         .any(|part| !matches!(part, Component::Normal(_)))
     {
-        return Err("This place is outside the library.".to_string());
+        return Err(tr!(
+            "This place is outside the library.",
+            "Cet emplacement est hors de la bibliothèque."
+        ));
     }
     Ok(root.join(relative))
 }
@@ -391,7 +394,10 @@ pub fn tutorial_create(
 ) -> Result<String, String> {
     let parent = inside(&root(&app), &format!("{site}/{theme}"))?;
     if !parent.is_dir() {
-        return Err("This theme is not in the library.".to_string());
+        return Err(tr!(
+            "This theme is not in the library.",
+            "Ce thème n'est pas dans la bibliothèque."
+        ));
     }
     let name = unique(&parent, &slug(&title), "-");
     let folder = parent.join(&name);
@@ -406,14 +412,22 @@ pub fn tutorial_create(
 #[tauri::command]
 pub fn tutorial_read(app: AppHandle, path: String) -> Result<String, String> {
     let file = inside(&root(&app), &path)?.join(GUIDE_FILE);
-    std::fs::read_to_string(&file).map_err(|_| "This tutorial cannot be read.".to_string())
+    std::fs::read_to_string(&file).map_err(|_| {
+        tr!(
+            "This tutorial cannot be read.",
+            "Ce tutoriel ne peut pas être lu."
+        )
+    })
 }
 
 #[tauri::command]
 pub fn tutorial_write(app: AppHandle, path: String, guide: String) -> Result<(), String> {
     let folder = inside(&root(&app), &path)?;
     if !folder.is_dir() {
-        return Err("This tutorial is no longer in the library.".to_string());
+        return Err(tr!(
+            "This tutorial is no longer in the library.",
+            "Ce tutoriel n'est plus dans la bibliothèque."
+        ));
     }
     write_atomic(&folder.join(GUIDE_FILE), guide.as_bytes())
 }
@@ -423,7 +437,10 @@ pub fn tutorial_write(app: AppHandle, path: String, guide: String) -> Result<(),
 #[tauri::command]
 pub fn tutorial_file(app: AppHandle, request: InvokeRequest<'_>) -> Result<(), String> {
     let InvokeBody::Raw(bytes) = request.body() else {
-        return Err("The file content is missing.".to_string());
+        return Err(tr!(
+            "The file content is missing.",
+            "Le contenu du fichier manque."
+        ));
     };
     let header = |name: &str| {
         request
@@ -461,7 +478,12 @@ pub fn tutorial_move(
 #[tauri::command]
 pub fn tutorial_duplicate(app: AppHandle, path: String) -> Result<String, String> {
     let source = inside(&root(&app), &path)?;
-    let parent = source.parent().ok_or("This tutorial has no theme.")?;
+    let parent = source.parent().ok_or_else(|| {
+        tr!(
+            "This tutorial has no theme.",
+            "Ce tutoriel n'a pas de thème."
+        )
+    })?;
     let name = unique(parent, &format!("{}-copy", name_of(&source)), "-");
     copy_folder(&source, &parent.join(&name))?;
     let _ = std::fs::remove_file(parent.join(&name).join(STUDIO_FILE));
@@ -523,7 +545,12 @@ pub fn tutorial_publish(app: AppHandle, path: String) -> Result<String, String> 
     let target = read_json(&inside(&root, site)?.join(SITE_FILE))["publishTo"]
         .as_str()
         .map(PathBuf::from)
-        .ok_or_else(|| "Choose where this site publishes first.".to_string())?;
+        .ok_or_else(|| {
+            tr!(
+                "Choose where this site publishes first.",
+                "Choisissez d'abord où ce site publie."
+            )
+        })?;
     let guide = read_json(&folder.join(GUIDE_FILE));
     let destination = target.join(name_of(&folder));
     let staging = target.join(format!(".{}-publishing", name_of(&folder)));
@@ -567,7 +594,7 @@ pub fn tutorial_export(app: AppHandle, path: String, target: String) -> Result<(
             continue;
         };
         let bytes = std::fs::read(inside(&folder, src)?)
-            .map_err(|_| format!("The image {src} is missing."))?;
+            .map_err(|_| tr!("The image {src} is missing.", "L'image {src} manque."))?;
         files.push((src.to_string(), bytes));
     }
     write_atomic(Path::new(&target), &zip(&files))
@@ -639,7 +666,10 @@ fn crc32(bytes: &[u8]) -> u32 {
 pub fn library_delete(app: AppHandle, path: String) -> Result<(), String> {
     let target = inside(&root(&app), &path)?;
     if path.is_empty() || !target.exists() {
-        return Err("This item is no longer in the library.".to_string());
+        return Err(tr!(
+            "This item is no longer in the library.",
+            "Cet élément n'est plus dans la bibliothèque."
+        ));
     }
     recycle(&target)
 }
@@ -664,13 +694,21 @@ fn recycle(path: &Path) -> Result<(), String> {
     if result == 0 && !operation.fAnyOperationsAborted.as_bool() {
         Ok(())
     } else {
-        Err("Windows could not move it to the recycle bin.".to_string())
+        Err(tr!(
+            "Windows could not move it to the recycle bin.",
+            "Windows n'a pas pu le placer dans la corbeille."
+        ))
     }
 }
 
 #[cfg(not(windows))]
 fn recycle(path: &Path) -> Result<(), String> {
-    trash::delete(path).map_err(|_| "The system could not move it to the trash.".to_string())
+    trash::delete(path).map_err(|_| {
+        tr!(
+            "The system could not move it to the trash.",
+            "Le système n'a pas pu le placer dans la corbeille."
+        )
+    })
 }
 
 /// Opens the file explorer on an item of the library, or on any folder the studio shows.
@@ -697,7 +735,12 @@ pub fn save_capture(
     tutorial: &str,
     bytes: &[u8],
 ) -> Result<(String, u32, u32), String> {
-    let (width, height) = webp_size(bytes).ok_or("The screenshot is not a WebP image.")?;
+    let (width, height) = webp_size(bytes).ok_or_else(|| {
+        tr!(
+            "The screenshot is not a WebP image.",
+            "La capture n'est pas une image WebP."
+        )
+    })?;
     let name = format!("assets/{:016x}.webp", fnv(bytes));
     let file = inside(&inside(&root(app), tutorial)?, &name)?;
     if !file.exists() {

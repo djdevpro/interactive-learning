@@ -6,6 +6,7 @@ import {
   type GuideStep,
   type GuideViewport,
 } from '@interactive-learning/protocol';
+import { t } from './i18n';
 
 export interface Size {
   width: number;
@@ -147,7 +148,8 @@ export function clickStep(guide: GuideDocument, base: Baseline, click: Observati
   const viewport = visiblePart(base.page, click.scroll, click.viewport);
   const step: GuideStep = {
     id: `step_${crypto.randomUUID()}`,
-    title: label ? `Click “${label}”` : 'Click here',
+    // Named in the language of the studio, the language the creator writes the tutorial in.
+    title: label ? t('recording.click', { label }) : t('recording.clickHere'),
     description: '',
     durationMs: clickDuration(withImage, assetId, viewport),
     assetId,
@@ -155,7 +157,13 @@ export function clickStep(guide: GuideDocument, base: Baseline, click: Observati
     ...transitionFrom(withImage, assetId),
     cursor: { x, y, action: 'click' },
     annotations: [
-      { id: `marker_${crypto.randomUUID()}`, x, y, title: label || 'Click here', body: '' },
+      {
+        id: `marker_${crypto.randomUUID()}`,
+        x,
+        y,
+        title: label || t('recording.clickHere'),
+        body: '',
+      },
     ],
     source: source(click.url, 'click', click),
   };
@@ -172,7 +180,7 @@ export function screenStep(
   const { guide: withImage, assetId } = withAsset(guide, base.asset);
   const step: GuideStep = {
     id: `step_${crypto.randomUUID()}`,
-    title: base.title || 'New screen',
+    title: base.title || t('recording.newScreen'),
     description: '',
     durationMs: 2500,
     assetId,

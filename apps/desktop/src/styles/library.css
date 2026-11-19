@@ -110,6 +110,11 @@
   padding: 0 0 0 18px;
   list-style: none;
 }
+/* A little air between rows, so a hovered row never touches the current one. */
+.site-row + .site-row,
+.plan-rooms li + li {
+  margin-top: 3px;
+}
 
 .room-link {
   min-height: 28px;

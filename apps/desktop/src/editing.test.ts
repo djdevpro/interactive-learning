@@ -14,6 +14,9 @@ import {
   stepStarts,
 } from './editing';
 
+/** The no-break space that keeps a number with its unit. */
+const nbsp = String.fromCodePoint(0xa0);
+
 function step(id: string, durationMs = 3000, assetId = 'shot'): GuideStep {
   return { id, title: id, description: '', durationMs, assetId, annotations: [] };
 }
@@ -65,7 +68,8 @@ describe('editing a tutorial', () => {
     expect(scrollTo(tall, null).viewport).toBeUndefined();
     expect(clampDuration(120)).toBe(1000);
     expect(clampDuration(4049)).toBe(4000);
-    expect(seconds(4000)).toBe('4 s');
-    expect(seconds(4500)).toBe('4.5 s');
+    // A no-break space keeps the number with its unit.
+    expect(seconds(4000)).toBe(`4${nbsp}s`);
+    expect(seconds(4500)).toBe(`4.5${nbsp}s`);
   });
 });

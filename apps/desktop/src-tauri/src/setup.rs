@@ -237,8 +237,8 @@ fn cli(
     command.output()
 }
 
-fn outcome(output: std::io::Result<std::process::Output>, missing: &str) -> Result<(), String> {
-    let output = output.map_err(|_| missing.to_string())?;
+fn outcome(output: std::io::Result<std::process::Output>, missing: String) -> Result<(), String> {
+    let output = output.map_err(|_| missing.clone())?;
     if output.status.success() {
         return Ok(());
     }
@@ -247,7 +247,7 @@ fn outcome(output: std::io::Result<std::process::Output>, missing: &str) -> Resu
         .lines()
         .map(str::trim)
         .find(|line| !line.is_empty())
-        .unwrap_or(missing);
+        .unwrap_or(&missing);
     Err(first.to_string())
 }
 
@@ -315,7 +315,10 @@ pub async fn agents_connect(client: String) -> Result<(), String> {
                         &["mcp", "add", "--scope", "user", NAME, "--", &exe, "--mcp"],
                         None,
                     ),
-                    "Claude Code is not installed on this computer (the claude command).",
+                    tr!(
+                        "Claude Code is not installed on this computer (the claude command).",
+                        "Claude Code n'est pas installé sur cet ordinateur (commande claude)."
+                    ),
                 )
             }
             "codex" => {
@@ -324,7 +327,10 @@ pub async fn agents_connect(client: String) -> Result<(), String> {
                 }
                 outcome(
                     cli("codex", &["mcp", "add", NAME, "--", &exe, "--mcp"], None),
-                    "Codex is not installed on this computer (the codex command).",
+                    tr!(
+                        "Codex is not installed on this computer (the codex command).",
+                        "Codex n'est pas installé sur cet ordinateur (commande codex)."
+                    ),
                 )
             }
             other => Err(format!("Unknown agent {other}.")),

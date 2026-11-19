@@ -1,4 +1,5 @@
 import type { GuideDocument } from '@interactive-learning/protocol';
+import type { MessageKey, Params } from '../i18n';
 import type { SiteEntry, ThemeEntry } from '../library';
 import type { Capture } from '../recording';
 
@@ -10,7 +11,7 @@ export interface EditorAgent {
   site(): SiteEntry | null;
   theme(): ThemeEntry | null;
   /** Applies a change, saved on its own and undoable like any other. */
-  change(next: GuideDocument, label: string): void;
+  change(next: GuideDocument, label: MessageKey): void;
   select(stepId: string | null): void;
   show(view: 'canvas' | 'recorder'): void;
   stage(): 'canvas' | 'player' | 'recorder';
@@ -56,10 +57,16 @@ export interface ToolResult {
   data: unknown;
   /** Pictures for the agent, as data URIs. */
   images?: string[];
-  /** One sentence for the journal of Settings › MCP. */
-  summary?: string;
+  /** One sentence for the journal of Settings › MCP, written in the language of the studio. */
+  summary?: Summary;
   /** The tutorial the tool worked on, which the journal links to. */
   tutorial?: string | null;
+}
+
+/** A sentence of the catalog with its parameters, so the journal reads in the language of the day. */
+export interface Summary {
+  key: MessageKey;
+  params?: Params;
 }
 
 export type ToolArgs = Record<string, unknown>;

@@ -294,7 +294,8 @@ kbd {
 .segmented button:hover {
   color: var(--text);
 }
-.segmented button[aria-pressed='true'] {
+.segmented button[aria-pressed='true'],
+.segmented button[aria-checked='true'] {
   background: var(--high);
   color: var(--text);
 }
@@ -367,6 +368,31 @@ kbd {
   margin: var(--space-1) 0;
   border: 0;
   border-top: 1px solid var(--line-strong);
+}
+
+/* A menu at the pointer, from a right click, or under a More button. */
+.context-menu {
+  position: fixed;
+  z-index: 100;
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  outline: none;
+}
+.menu .menu-text {
+  flex: 1;
+  white-space: nowrap;
+}
+.menu .menu-keys {
+  margin-left: var(--space-5);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  font: 400 var(--text-sm) / 1 var(--font);
+}
+.menu button:hover .menu-keys,
+.menu button:focus-visible .menu-keys {
+  color: inherit;
 }
 
 /* Dialogs: only to name something new or to confirm a deletion. */

@@ -16,6 +16,8 @@ import {
   type TutorialEntry,
 } from '../library';
 import { presence } from '../agent/bridge';
+import { t } from '../i18n';
+import { buttonMenu, contextMenu, type MenuEntry } from '../menus';
 import { bin, canRecord, revealLabel } from '../platform';
 import { update } from '../settings';
 import { notify, since, warn } from '../ui';
@@ -75,7 +77,7 @@ async function refresh(): Promise<void> {
   try {
     sites.value = await library.scan();
   } catch (cause) {
-    warn(cause, 'The library could not be read.');
+    warn(cause, t('library.readFailed'));
   } finally {
     loaded.value = true;
   }
@@ -90,10 +92,10 @@ defineExpose({ refresh });
 
 function status(tutorial: TutorialEntry): { label: string; tone: 'done' | 'changed' | 'draft' } {
   const state = tutorialStatus(tutorial);
-  if (state === 'draft') return { label: 'Draft', tone: 'draft' };
+  if (state === 'draft') return { label: t('library.draft'), tone: 'draft' };
   return state === 'published'
-    ? { label: 'Published', tone: 'done' }
-    : { label: 'Changed since publishing', tone: 'changed' };
+    ? { label: t('library.published'), tone: 'done' }
+    : { label: t('library.changed'), tone: 'changed' };
 }
 
 /** The part of the first screenshot its step shows, as a cover. */
@@ -103,14 +105,18 @@ function coverStyle(tutorial: TutorialEntry): Record<string, string> {
   return { objectPosition: `0 ${Math.min(100, Math.max(0, top))}%` };
 }
 
-/** An id for a menu, from a library path that may hold spaces. */
-function menuId(prefix: string, path: string): string {
-  return `${prefix}-${path.replace(/[^\w-]/g, '_')}`;
-}
-
 function shortPath(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts.length > 3 ? `…\\${parts.slice(-3).join('\\')}` : path;
+}
+
+/** What deleting a site or a theme takes with it. */
+function goesWith(count: number): string {
+  return count === 0 ? t('library.holdsNothing') : t('library.goesWith', { count });
+}
+
+function reveal(path: string, absolute = false): void {
+  library.reveal(path, absolute).catch((cause) => warn(cause, t('library.revealFailed')));
 }
 
 // Forms.
@@ -165,10 +171,7 @@ function newTutorial(entry: SiteEntry, theme?: ThemeEntry): void {
 
 async function chooseFolder(): Promise<void> {
   if (form.value?.kind !== 'site') return;
-  const folder = await pickFolder({
-    directory: true,
-    title: 'Where this site publishes its tutorials',
-  });
+  const folder = await pickFolder({ directory: true, title: t('library.publishDialog') });
   if (typeof folder === 'string') form.value.publishTo = folder;
 }
 
@@ -178,7 +181,7 @@ async function submit(): Promise<void> {
   formError.value = '';
   try {
     if (current.kind === 'site') {
-      if (!current.name.trim()) return void (formError.value = 'Give the site a name.');
+      if (!current.name.trim()) return void (formError.value = t('library.siteNameMissing'));
       const id = await library.saveSite({
         ...(current.id ? { id: current.id } : {}),
         name: current.name,
@@ -186,26 +189,32 @@ async function submit(): Promise<void> {
         publishTo: current.publishTo,
       });
       // A new site starts with one theme, so a first tutorial has a place to go.
-      if (!current.id) await library.saveTheme(id, { name: 'General', color: 'blue' });
+      if (!current.id)
+        await library.saveTheme(id, { name: t('library.generalTheme'), color: 'blue' });
       emit('select-site', id);
     } else if (current.kind === 'theme') {
-      if (!current.name.trim()) return void (formError.value = 'Give the theme a name.');
+      if (!current.name.trim()) return void (formError.value = t('library.themeNameMissing'));
       await library.saveTheme(current.site, {
         ...(current.id ? { id: current.id } : {}),
         name: current.name,
         color: current.color,
       });
     } else if (current.kind === 'tutorial') {
-      const title = current.title.trim() || 'Untitled tutorial';
+      const title = current.title.trim() || t('common.untitledTutorial');
       let theme = current.theme;
-      if (!theme) theme = await library.saveTheme(current.site, { name: 'General', color: 'blue' });
+      if (!theme) {
+        theme = await library.saveTheme(current.site, {
+          name: t('library.generalTheme'),
+          color: 'blue',
+        });
+      }
       const path = await library.createTutorial(current.site, theme, createGuide(title));
       closeForm();
       emit('open', path, 'record');
       return;
     } else if (current.kind === 'rename') {
       const title = current.title.trim();
-      if (!title) return void (formError.value = 'Give the tutorial a title.');
+      if (!title) return void (formError.value = t('library.titleMissing'));
       const guide = await library.readTutorial(current.path);
       await library.writeTutorial(current.path, {
         ...guide,
@@ -214,7 +223,7 @@ async function submit(): Promise<void> {
       });
     } else {
       await library.remove(current.path);
-      notify(`${current.what} moved to the ${bin}`);
+      notify(t('library.movedToBin', { name: current.what, bin: bin() }));
     }
     closeForm();
     await refresh();
@@ -229,9 +238,9 @@ async function duplicate(tutorial: TutorialEntry): Promise<void> {
   try {
     await library.duplicate(tutorial.path);
     await refresh();
-    notify('Tutorial duplicated');
+    notify(t('library.duplicated'));
   } catch (cause) {
-    warn(cause, 'The tutorial could not be duplicated.');
+    warn(cause, t('library.duplicateFailed'));
   }
 }
 
@@ -239,9 +248,9 @@ async function move(tutorial: TutorialEntry, target: SiteEntry, theme: ThemeEntr
   try {
     await library.moveTutorial(tutorial.path, target.id, theme.id);
     await refresh();
-    notify(`Moved to ${theme.name}`);
+    notify(t('library.moved', { theme: theme.name }));
   } catch (cause) {
-    warn(cause, 'The tutorial could not be moved.');
+    warn(cause, t('library.moveFailed'));
   }
 }
 
@@ -249,15 +258,9 @@ async function publish(tutorial: TutorialEntry): Promise<void> {
   try {
     await library.publish(tutorial.path);
     await refresh();
-    notify(`“${tutorial.title}” published`);
+    notify(t('library.publishedToast', { title: tutorial.title }));
   } catch (cause) {
-    warn(cause, 'The tutorial could not be published.');
-  }
-}
-
-function hideMenus(): void {
-  for (const menu of document.querySelectorAll<HTMLElement>('.menu:popover-open')) {
-    menu.hidePopover();
+    warn(cause, t('library.publishFailed'));
   }
 }
 
@@ -272,19 +275,158 @@ function selectSite(id: string): void {
   emit('select-site', id);
   gallery.value?.scrollTo({ top: 0 });
 }
+
+// Menus: the same entries for a right click and for the More button of each thing.
+
+function siteEntries(entry: SiteEntry): MenuEntry[] {
+  return [
+    { label: t('library.newTutorial'), icon: 'plus', run: () => newTutorial(entry) },
+    { label: t('library.newTheme'), icon: 'room', run: () => newTheme(entry) },
+    { separator: true },
+    { label: t('library.editSite'), icon: 'edit', run: () => editSite(entry) },
+    { label: revealLabel(), icon: 'folder', run: () => reveal(entry.id) },
+    { separator: true },
+    {
+      label: t('library.deleteSite'),
+      icon: 'trash',
+      danger: true,
+      run: () =>
+        void openForm({
+          kind: 'delete',
+          path: entry.id,
+          what: entry.name,
+          detail: goesWith(tutorialCount(entry)),
+        }),
+    },
+  ];
+}
+
+function themeEntries(entry: SiteEntry, theme: ThemeEntry): MenuEntry[] {
+  return [
+    { label: t('library.newTutorialHere'), icon: 'plus', run: () => newTutorial(entry, theme) },
+    { label: t('library.renameTheme'), icon: 'edit', run: () => editTheme(entry, theme) },
+    { label: revealLabel(), icon: 'folder', run: () => reveal(`${entry.id}/${theme.id}`) },
+    { separator: true },
+    {
+      label: t('library.deleteTheme'),
+      icon: 'trash',
+      danger: true,
+      run: () =>
+        void openForm({
+          kind: 'delete',
+          path: `${entry.id}/${theme.id}`,
+          what: theme.name,
+          detail: goesWith(theme.tutorials.length),
+        }),
+    },
+  ];
+}
+
+function tutorialEntries(entry: SiteEntry, tutorial: TutorialEntry): MenuEntry[] {
+  const moves: MenuEntry[] = sites.value.flatMap((target) => {
+    const themes = target.themes.filter(
+      (candidate) => !tutorial.path.startsWith(`${target.id}/${candidate.id}/`),
+    );
+    if (!themes.length) return [];
+    return [
+      {
+        heading:
+          target.id === entry.id
+            ? t('library.moveToTheme')
+            : t('library.moveToSite', { site: target.name }),
+      },
+      ...themes.map((theme) => ({
+        label: theme.name,
+        icon: 'move' as const,
+        run: () => void move(tutorial, target, theme),
+      })),
+    ];
+  });
+  return [
+    { label: t('common.open'), icon: 'edit', run: () => emit('open', tutorial.path, 'edit') },
+    {
+      label: t('library.recordMore'),
+      icon: 'record',
+      disabled: !canRecord,
+      run: () => emit('open', tutorial.path, 'record'),
+    },
+    ...(entry.publishTo
+      ? [
+          {
+            label: t('library.publish'),
+            icon: 'publish' as const,
+            run: () => void publish(tutorial),
+          },
+        ]
+      : []),
+    {
+      label: t('common.rename'),
+      icon: 'text',
+      run: () => void openForm({ kind: 'rename', path: tutorial.path, title: tutorial.title }),
+    },
+    { label: t('library.duplicate'), icon: 'copy', run: () => void duplicate(tutorial) },
+    { separator: true },
+    ...moves,
+    { separator: true },
+    { label: revealLabel(), icon: 'folder', run: () => reveal(tutorial.path) },
+    {
+      label: t('common.delete'),
+      icon: 'trash',
+      danger: true,
+      run: () =>
+        void openForm({
+          kind: 'delete',
+          path: tutorial.path,
+          what: tutorial.title,
+          detail: t('library.screenshotsGo'),
+        }),
+    },
+  ];
+}
+
+/** The empty part of the gallery: what to add to the open site. */
+function galleryEntries(): MenuEntry[] {
+  const entry = site.value;
+  if (!entry) return [{ label: t('library.newSite'), icon: 'plus', run: newSite }];
+  return [
+    { label: t('library.newTutorial'), icon: 'plus', run: () => newTutorial(entry) },
+    { label: t('library.newTheme'), icon: 'room', run: () => newTheme(entry) },
+    { separator: true },
+    { label: t('library.editSite'), icon: 'edit', run: () => editSite(entry) },
+    { label: revealLabel(), icon: 'folder', run: () => reveal(entry.id) },
+  ];
+}
+
+/** The empty part of the sites panel. */
+function panelEntries(): MenuEntry[] {
+  return [
+    { label: t('library.newSite'), icon: 'plus', run: newSite },
+    { label: t('library.showFolder'), icon: 'folder', run: () => reveal(root.value, true) },
+  ];
+}
+
+/** A right click on a site opens it too, as a file manager selects what it shows a menu for. */
+function onSiteMenu(event: MouseEvent, entry: SiteEntry): void {
+  if (entry.id !== site.value?.id) selectSite(entry.id);
+  contextMenu(event, siteEntries(entry), t('menu.ofSite', { name: entry.name }));
+}
 </script>
 
 <template>
   <div class="library">
-    <aside class="plan" aria-label="Library">
+    <aside class="plan" :aria-label="t('common.library')">
       <header class="plan-head">
         <Logo :size="26" />
         <span class="plan-name">Interactive Learning</span>
       </header>
 
-      <nav class="plan-sites" aria-label="Sites">
-        <h2 class="plan-title">Sites</h2>
-        <p v-if="loaded && !sites.length" class="plan-empty">No site yet.</p>
+      <nav
+        class="plan-sites"
+        :aria-label="t('library.sites')"
+        @contextmenu="contextMenu($event, panelEntries(), t('menu.ofLibrary'))"
+      >
+        <h2 class="plan-title">{{ t('library.sites') }}</h2>
+        <p v-if="loaded && !sites.length" class="plan-empty">{{ t('library.noSite') }}</p>
         <div
           v-for="entry in sites"
           :key="entry.id"
@@ -296,6 +438,7 @@ function selectSite(id: string): void {
             class="site-button"
             :aria-current="entry.id === site?.id ? 'page' : undefined"
             @click="selectSite(entry.id)"
+            @contextmenu="onSiteMenu($event, entry)"
           >
             <span class="monogram" aria-hidden="true">{{
               entry.name.charAt(0).toUpperCase()
@@ -310,6 +453,13 @@ function selectSite(id: string): void {
                 class="room-link"
                 :data-label="theme.color"
                 @click="scrollToTheme(theme.id)"
+                @contextmenu="
+                  contextMenu(
+                    $event,
+                    themeEntries(entry, theme),
+                    t('menu.ofTheme', { name: theme.name }),
+                  )
+                "
               >
                 <span class="label-dot" aria-hidden="true"></span>
                 <span class="room-name">{{ theme.name }}</span>
@@ -319,7 +469,7 @@ function selectSite(id: string): void {
             <li>
               <button type="button" class="room-link add" @click="newTheme(entry)">
                 <Icon name="plus" :size="14" />
-                <span>New theme</span>
+                <span>{{ t('library.newTheme') }}</span>
               </button>
             </li>
           </ul>
@@ -329,20 +479,11 @@ function selectSite(id: string): void {
       <footer class="plan-foot">
         <button type="button" class="button quiet plan-add" @click="newSite">
           <Icon name="plus" />
-          New site
+          {{ t('library.newSite') }}
         </button>
-        <button
-          type="button"
-          class="folder-link"
-          :title="root"
-          @click="
-            library
-              .reveal(root, true)
-              .catch((cause) => warn(cause, 'The folder could not be shown.'))
-          "
-        >
+        <button type="button" class="folder-link" :title="root" @click="reveal(root, true)">
           <Icon name="folder" :size="15" />
-          <span>Library folder</span>
+          <span>{{ t('library.folder') }}</span>
         </button>
       </footer>
       <div class="plan-bottom">
@@ -350,44 +491,52 @@ function selectSite(id: string): void {
           v-if="presence"
           class="agent-badge plan-agent"
           role="status"
-          :title="`${presence.agent} is driving the studio`"
+          :title="t('common.agentDriving', { agent: presence.agent })"
         >
-          <Icon name="spark" :size="13" />{{ presence.agent }} is working
+          <Icon name="spark" :size="13" />{{ t('common.agentWorking', { agent: presence.agent }) }}
         </span>
         <button
           type="button"
           class="button quiet plan-add plan-settings"
-          title="Updates, MCP, library and shortcuts"
+          :title="t('library.settingsTitle')"
           @click="emit('settings')"
         >
           <Icon name="settings" />
-          Settings
+          {{ t('common.settings') }}
           <span
             v-if="update.phase === 'available'"
             class="badge-dot"
-            aria-label="A new version is available"
+            :aria-label="t('common.newVersion')"
           ></span>
         </button>
       </div>
     </aside>
 
-    <main ref="gallery" class="gallery">
+    <main
+      ref="gallery"
+      class="gallery"
+      @contextmenu="contextMenu($event, galleryEntries(), t('menu.ofLibrary'))"
+    >
       <section v-if="loaded && !sites.length" class="welcome">
         <Logo :size="56" />
-        <h1>Your tutorials start with a site</h1>
-        <p>
-          A site is the web application you document. Its tutorials are grouped by theme, and each
-          tutorial is a tour of numbered steps recorded in the browser built into the studio.
-        </p>
+        <h1>{{ t('library.welcomeTitle') }}</h1>
+        <p>{{ t('library.welcomeBody') }}</p>
         <button type="button" class="button primary large" @click="newSite">
           <Icon name="plus" />
-          Add a site
+          {{ t('library.addSite') }}
         </button>
-        <p class="hint">Everything is saved in {{ root || 'your Documents folder' }}.</p>
+        <p class="hint">
+          {{ t('library.savedIn', { folder: root || t('library.documentsFolder') }) }}
+        </p>
       </section>
 
       <template v-else-if="site">
-        <header class="gallery-head">
+        <header
+          class="gallery-head"
+          @contextmenu="
+            contextMenu($event, siteEntries(site), t('menu.ofSite', { name: site.name }))
+          "
+        >
           <div class="site-heading">
             <h1>{{ site.name }}</h1>
             <p class="site-meta">
@@ -395,60 +544,42 @@ function selectSite(id: string): void {
                 ><Icon name="globe" :size="15" />{{ site.address }}</span
               >
               <span v-if="site.publishTo" class="publish-target" :title="site.publishTo">
-                <Icon name="link" :size="15" />Publishes to {{ shortPath(site.publishTo) }}
+                <Icon name="link" :size="15" />{{
+                  t('library.publishesTo', { folder: shortPath(site.publishTo) })
+                }}
               </span>
               <button v-else type="button" class="link-button" @click="editSite(site)">
-                <Icon name="link" :size="15" />Link a project folder to publish
+                <Icon name="link" :size="15" />{{ t('library.linkFolder') }}
               </button>
             </p>
           </div>
           <div class="head-actions">
             <label class="search">
               <Icon name="search" :size="16" />
-              <span class="visually-hidden">Search tutorials</span>
-              <input v-model="search" type="search" placeholder="Search tutorials" />
+              <span class="visually-hidden">{{ t('library.search') }}</span>
+              <input v-model="search" type="search" :placeholder="t('library.search')" />
             </label>
             <button type="button" class="button" @click="newTheme(site)">
               <Icon name="room" />
-              New theme
+              {{ t('library.newTheme') }}
             </button>
             <button type="button" class="button primary" @click="newTutorial(site)">
               <Icon name="plus" />
-              New tutorial
+              {{ t('library.newTutorial') }}
             </button>
             <button
               type="button"
               class="button icon quiet"
-              title="Site options"
-              popovertarget="site-menu"
+              :title="t('library.siteOptions')"
+              aria-haspopup="menu"
+              @click="buttonMenu($event, siteEntries(site), t('menu.ofSite', { name: site.name }))"
             >
               <Icon name="more" />
             </button>
-            <div id="site-menu" popover class="menu" @click="hideMenus">
-              <button type="button" @click="editSite(site)"><Icon name="edit" />Edit site</button>
-              <button type="button" @click="library.reveal(site.id)">
-                <Icon name="folder" />{{ revealLabel }}
-              </button>
-              <hr />
-              <button
-                type="button"
-                class="danger-item"
-                @click="
-                  openForm({
-                    kind: 'delete',
-                    path: site.id,
-                    what: site.name,
-                    detail: `Its ${tutorialCount(site)} tutorials go with it.`,
-                  })
-                "
-              >
-                <Icon name="trash" />Delete site
-              </button>
-            </div>
           </div>
         </header>
 
-        <p v-if="nothingFound" class="no-result">No tutorial matches “{{ search }}”.</p>
+        <p v-if="nothingFound" class="no-result">{{ t('library.noMatch', { search }) }}</p>
 
         <section
           v-for="room in rooms"
@@ -459,46 +590,29 @@ function selectSite(id: string): void {
           :data-theme="room.id"
           :aria-label="room.name"
         >
-          <header class="room-head">
+          <header
+            class="room-head"
+            @contextmenu="
+              contextMenu($event, themeEntries(site, room), t('menu.ofTheme', { name: room.name }))
+            "
+          >
             <span class="label-dot" aria-hidden="true"></span>
             <h2>{{ room.name }}</h2>
             <span class="room-facts tabular">
-              {{
-                room.tutorials.length === 1 ? '1 tutorial' : `${room.tutorials.length} tutorials`
-              }}
+              {{ t('common.tutorials', { count: room.tutorials.length }) }}
               <template v-if="room.tutorials.length">· {{ themeRuntime(room) }}</template>
             </span>
             <button
               type="button"
               class="button icon small quiet"
-              :title="`Options of ${room.name}`"
-              :popovertarget="menuId('room', room.id)"
+              :title="t('library.optionsOf', { name: room.name })"
+              aria-haspopup="menu"
+              @click="
+                buttonMenu($event, themeEntries(site, room), t('menu.ofTheme', { name: room.name }))
+              "
             >
               <Icon name="more" />
             </button>
-            <div :id="menuId('room', room.id)" popover class="menu" @click="hideMenus">
-              <button type="button" @click="newTutorial(site, room)">
-                <Icon name="plus" />New tutorial here
-              </button>
-              <button type="button" @click="editTheme(site, room)">
-                <Icon name="edit" />Rename or recolor
-              </button>
-              <hr />
-              <button
-                type="button"
-                class="danger-item"
-                @click="
-                  openForm({
-                    kind: 'delete',
-                    path: `${site.id}/${room.id}`,
-                    what: room.name,
-                    detail: `Its ${room.tutorials.length} tutorials go with it.`,
-                  })
-                "
-              >
-                <Icon name="trash" />Delete theme
-              </button>
-            </div>
           </header>
 
           <div class="works">
@@ -510,6 +624,13 @@ function selectSite(id: string): void {
               :aria-label="tutorial.title"
               @dblclick="emit('open', tutorial.path, 'edit')"
               @keydown.enter="emit('open', tutorial.path, 'edit')"
+              @contextmenu="
+                contextMenu(
+                  $event,
+                  tutorialEntries(site, tutorial),
+                  t('menu.ofTutorial', { name: tutorial.title }),
+                )
+              "
             >
               <button type="button" class="work-frame" @click="emit('open', tutorial.path, 'edit')">
                 <img
@@ -520,19 +641,21 @@ function selectSite(id: string): void {
                   loading="lazy"
                 />
                 <span v-else class="work-empty"
-                  ><Icon name="record" :size="16" />Not recorded yet</span
+                  ><Icon name="record" :size="16" />{{ t('library.notRecorded') }}</span
                 >
-                <span class="visually-hidden">Open {{ tutorial.title }}</span>
+                <span class="visually-hidden">{{
+                  t('library.openTutorial', { title: tutorial.title })
+                }}</span>
               </button>
               <div class="work-label">
-                <h3>{{ tutorial.title || 'Untitled tutorial' }}</h3>
+                <h3>{{ tutorial.title || t('common.untitledTutorial') }}</h3>
                 <p class="work-facts tabular">
-                  {{ tutorial.steps === 1 ? '1 step' : `${tutorial.steps} steps` }} ·
+                  {{ t('common.steps', { count: tutorial.steps }) }} ·
                   {{ timecode(tutorial.durationMs) }}
                   <span
                     v-if="tutorial.agent"
                     class="work-agent"
-                    :title="`Made by ${tutorial.agent}`"
+                    :title="t('library.madeBy', { agent: tutorial.agent })"
                     ><Icon name="spark" :size="12" />{{ tutorial.agent }}</span
                   >
                 </p>
@@ -544,64 +667,18 @@ function selectSite(id: string): void {
               <button
                 type="button"
                 class="button icon small quiet work-more"
-                :title="`Options of ${tutorial.title}`"
-                :popovertarget="menuId('work', tutorial.path)"
+                :title="t('library.optionsOf', { name: tutorial.title })"
+                aria-haspopup="menu"
+                @click="
+                  buttonMenu(
+                    $event,
+                    tutorialEntries(site, tutorial),
+                    t('menu.ofTutorial', { name: tutorial.title }),
+                  )
+                "
               >
                 <Icon name="more" />
               </button>
-              <div :id="menuId('work', tutorial.path)" popover class="menu" @click="hideMenus">
-                <button type="button" @click="emit('open', tutorial.path, 'edit')">
-                  <Icon name="edit" />Open
-                </button>
-                <button type="button" @click="emit('open', tutorial.path, 'record')">
-                  <Icon name="record" />Record more steps
-                </button>
-                <button v-if="site.publishTo" type="button" @click="publish(tutorial)">
-                  <Icon name="publish" />Publish
-                </button>
-                <button
-                  type="button"
-                  @click="openForm({ kind: 'rename', path: tutorial.path, title: tutorial.title })"
-                >
-                  <Icon name="text" />Rename
-                </button>
-                <button type="button" @click="duplicate(tutorial)">
-                  <Icon name="copy" />Duplicate
-                </button>
-                <template v-for="target in sites" :key="target.id">
-                  <span class="menu-label"
-                    >Move to {{ target.id === site.id ? 'theme' : target.name }}</span
-                  >
-                  <button
-                    v-for="theme in target.themes.filter(
-                      (candidate) => !tutorial.path.startsWith(`${target.id}/${candidate.id}/`),
-                    )"
-                    :key="theme.id"
-                    type="button"
-                    @click="move(tutorial, target, theme)"
-                  >
-                    <Icon name="move" />{{ theme.name }}
-                  </button>
-                </template>
-                <hr />
-                <button type="button" @click="library.reveal(tutorial.path)">
-                  <Icon name="folder" />{{ revealLabel }}
-                </button>
-                <button
-                  type="button"
-                  class="danger-item"
-                  @click="
-                    openForm({
-                      kind: 'delete',
-                      path: tutorial.path,
-                      what: tutorial.title,
-                      detail: 'Its screenshots go with it.',
-                    })
-                  "
-                >
-                  <Icon name="trash" />Delete
-                </button>
-              </div>
             </article>
 
             <button
@@ -609,9 +686,16 @@ function selectSite(id: string): void {
               type="button"
               class="work add"
               @click="newTutorial(site, room)"
+              @contextmenu="
+                contextMenu(
+                  $event,
+                  themeEntries(site, room),
+                  t('menu.ofTheme', { name: room.name }),
+                )
+              "
             >
               <Icon name="plus" :size="20" />
-              <span>New tutorial in {{ room.name }}</span>
+              <span>{{ t('library.newTutorialIn', { theme: room.name }) }}</span>
             </button>
           </div>
         </section>
@@ -621,24 +705,29 @@ function selectSite(id: string): void {
     <dialog ref="dialog" class="dialog" @close="form = null">
       <form v-if="form" method="dialog" @submit.prevent="submit">
         <template v-if="form.kind === 'site'">
-          <h2>{{ form.id ? 'Edit site' : 'New site' }}</h2>
+          <h2>{{ form.id ? t('library.editSiteTitle') : t('library.newSiteTitle') }}</h2>
           <label class="field">
-            <span>Name</span>
-            <input v-model="form.name" class="input" placeholder="Customer portal" required />
+            <span>{{ t('common.name') }}</span>
+            <input
+              v-model="form.name"
+              class="input"
+              :placeholder="t('library.siteNamePlaceholder')"
+              required
+            />
           </label>
           <label class="field">
-            <span>Address</span>
+            <span>{{ t('library.address') }}</span>
             <input v-model="form.address" class="input" placeholder="https://app.example.com" />
-            <small class="hint">The browser of the studio opens it when you record.</small>
+            <small class="hint">{{ t('library.addressHint') }}</small>
           </label>
           <div class="field">
-            <span>Publish to</span>
+            <span>{{ t('library.publishToLabel') }}</span>
             <div class="folder-pick">
               <span class="folder-value" :title="form.publishTo ?? ''">
-                {{ form.publishTo ? shortPath(form.publishTo) : 'Not linked yet' }}
+                {{ form.publishTo ? shortPath(form.publishTo) : t('library.notLinked') }}
               </span>
               <button type="button" class="button small" @click="chooseFolder">
-                Choose folder…
+                {{ t('library.chooseFolder') }}
               </button>
               <button
                 v-if="form.publishTo"
@@ -646,24 +735,26 @@ function selectSite(id: string): void {
                 class="button small quiet"
                 @click="form.publishTo = null"
               >
-                Unlink
+                {{ t('library.unlink') }}
               </button>
             </div>
-            <small class="hint"
-              >The folder of the web project that serves the tutorials, such as
-              public/guides.</small
-            >
+            <small class="hint">{{ t('library.publishHint') }}</small>
           </div>
         </template>
 
         <template v-else-if="form.kind === 'theme'">
-          <h2>{{ form.id ? 'Edit theme' : 'New theme' }}</h2>
+          <h2>{{ form.id ? t('library.editThemeTitle') : t('library.newThemeTitle') }}</h2>
           <label class="field">
-            <span>Name</span>
-            <input v-model="form.name" class="input" placeholder="Billing" required />
+            <span>{{ t('common.name') }}</span>
+            <input
+              v-model="form.name"
+              class="input"
+              :placeholder="t('library.themeNamePlaceholder')"
+              required
+            />
           </label>
           <div class="field">
-            <span id="theme-color">Label color</span>
+            <span id="theme-color">{{ t('library.labelColor') }}</span>
             <div class="chips" role="radiogroup" aria-labelledby="theme-color">
               <button
                 v-for="color in THEME_COLORS"
@@ -673,7 +764,8 @@ function selectSite(id: string): void {
                 role="radio"
                 :data-label="color"
                 :aria-checked="form.color === color"
-                :aria-label="color"
+                :aria-label="t(`color.${color}`)"
+                :title="t(`color.${color}`)"
                 @click="form.color = color"
               ></button>
             </div>
@@ -681,47 +773,59 @@ function selectSite(id: string): void {
         </template>
 
         <template v-else-if="form.kind === 'tutorial'">
-          <h2>New tutorial</h2>
+          <h2>{{ t('library.newTutorialTitle') }}</h2>
           <label class="field">
-            <span>Title</span>
-            <input v-model="form.title" class="input" placeholder="Download an invoice" />
+            <span>{{ t('common.title') }}</span>
+            <input
+              v-model="form.title"
+              class="input"
+              :placeholder="t('library.tutorialPlaceholder')"
+            />
           </label>
           <label class="field">
-            <span>Theme</span>
+            <span>{{ t('library.theme') }}</span>
             <select v-model="form.theme" class="select">
               <option v-for="theme in formThemes" :key="theme.id" :value="theme.id">
                 {{ theme.name }}
               </option>
             </select>
           </label>
-          <small class="hint">The studio opens the browser on the site, ready to record.</small>
+          <small class="hint">{{ t('library.tutorialHint') }}</small>
         </template>
 
         <template v-else-if="form.kind === 'rename'">
-          <h2>Rename tutorial</h2>
+          <h2>{{ t('library.renameTutorialTitle') }}</h2>
           <label class="field">
-            <span>Title</span>
+            <span>{{ t('common.title') }}</span>
             <input v-model="form.title" class="input" required />
           </label>
         </template>
 
         <template v-else>
-          <h2>Delete “{{ form.what }}”?</h2>
-          <p>{{ form.detail }} It goes to the {{ bin }}, where you can restore it.</p>
+          <h2>{{ t('library.deleteTitle', { name: form.what }) }}</h2>
+          <p>{{ t('library.deleteBody', { detail: form.detail, bin: bin() }) }}</p>
         </template>
 
         <p v-if="formError" class="error-text" role="alert">{{ formError }}</p>
         <footer>
-          <button type="button" class="button" @click="closeForm">Cancel</button>
+          <button type="button" class="button" @click="closeForm">{{ t('common.cancel') }}</button>
           <button v-if="form.kind === 'delete'" type="submit" class="button danger">
-            Move to {{ bin }}
+            {{ t('library.moveToBin', { bin: bin() }) }}
           </button>
           <button v-else-if="form.kind === 'tutorial'" type="submit" class="button primary">
-            <template v-if="canRecord"><Icon name="record" />Create and record</template>
-            <template v-else>Create</template>
+            <template v-if="canRecord"
+              ><Icon name="record" />{{ t('library.createAndRecord') }}</template
+            >
+            <template v-else>{{ t('common.create') }}</template>
           </button>
           <button v-else type="submit" class="button primary">
-            {{ 'id' in form && form.id ? 'Save' : form.kind === 'rename' ? 'Rename' : 'Create' }}
+            {{
+              'id' in form && form.id
+                ? t('common.save')
+                : form.kind === 'rename'
+                  ? t('common.rename')
+                  : t('common.create')
+            }}
           </button>
         </footer>
       </form>

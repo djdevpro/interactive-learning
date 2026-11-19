@@ -6,11 +6,26 @@ import { open as pickFolder } from '@tauri-apps/plugin-dialog';
 import catalog from '../agent/tools.json';
 import Icon, { type IconName } from './Icon.vue';
 import Logo from './Logo.vue';
+import { summaryText } from '../agent/bridge';
+import type { Summary } from '../agent/types';
+import {
+  LANGUAGE_NAMES,
+  formatDate,
+  isMessageKey,
+  locale,
+  matchLocale,
+  since,
+  t,
+  type LanguageChoice,
+  type MessageKey,
+} from '../i18n';
 import { library } from '../library';
+import { contextMenu } from '../menus';
 import { revealLabel } from '../platform';
 import {
   busyUpdating,
   checkForUpdates,
+  chooseLanguage,
   info,
   installUpdate,
   loadInfo,
@@ -18,20 +33,36 @@ import {
   megabytes,
   saveSettings,
   settings,
+  systemLocale,
   update,
   type SettingsTab,
 } from '../settings';
-import { notify, since, warn } from '../ui';
+import { notify, warn } from '../ui';
 
 const props = defineProps<{ tab: SettingsTab }>();
 const emit = defineEmits<{ close: []; tab: [tab: SettingsTab]; open: [path: string] }>();
 
-const tabs: { id: SettingsTab; label: string; icon: IconName }[] = [
-  { id: 'updates', label: 'Updates', icon: 'download' },
-  { id: 'mcp', label: 'MCP', icon: 'plug' },
-  { id: 'library', label: 'Library', icon: 'folder' },
-  { id: 'shortcuts', label: 'Shortcuts', icon: 'keyboard' },
+const tabs: { id: SettingsTab; label: MessageKey; icon: IconName }[] = [
+  { id: 'general', label: 'settings.tabGeneral', icon: 'settings' },
+  { id: 'updates', label: 'settings.tabUpdates', icon: 'download' },
+  { id: 'mcp', label: 'settings.tabMcp', icon: 'plug' },
+  { id: 'library', label: 'settings.tabLibrary', icon: 'folder' },
+  { id: 'shortcuts', label: 'settings.tabShortcuts', icon: 'keyboard' },
 ];
+
+// General.
+
+const languages: { id: LanguageChoice; label: () => string }[] = [
+  { id: 'auto', label: () => t('general.automatic') },
+  { id: 'en', label: () => LANGUAGE_NAMES.en },
+  { id: 'fr', label: () => LANGUAGE_NAMES.fr },
+];
+const choice = computed<LanguageChoice>(() => settings.value?.language ?? 'auto');
+const computerLanguage = computed(() => LANGUAGE_NAMES[matchLocale(systemLocale.value)]);
+
+async function pickLanguage(next: LanguageChoice): Promise<void> {
+  await chooseLanguage(next).catch((cause) => warn(cause, t('settings.saveFailed')));
+}
 
 // Updates.
 
@@ -46,15 +77,15 @@ const canInstall = computed(
 const installNote = computed(() => {
   switch (info.value?.install) {
     case 'installer':
-      return 'Installed on this computer. A new version installs in place, then the studio opens again.';
+      return t('updates.installInstaller');
     case 'appImage':
-      return 'Runs as an AppImage. A new version takes its place, then the studio opens again.';
+      return t('updates.installAppImage');
     case 'package':
-      return 'Installed from a package. A new version opens in the software installer of your system.';
+      return t('updates.installPackage');
     case 'source':
-      return 'Built from the source code, so it never replaces itself. Install a release to get updates.';
+      return t('updates.installSource');
     default:
-      return 'Copied by hand. Download a new version from the releases page.';
+      return t('updates.installManual');
   }
 });
 const progress = computed(() =>
@@ -62,22 +93,18 @@ const progress = computed(() =>
 );
 const published = computed(() => {
   const at = latest.value?.publishedAt;
-  if (!at) return '';
-  return new Date(at).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  return at ? formatDate(at) : '';
 });
 
 function openPage(url: string | undefined): void {
-  if (url)
-    void invoke('open_external', { url }).catch((cause) => warn(cause, 'The page could not open.'));
+  if (url) {
+    void invoke('open_external', { url }).catch((cause) => warn(cause, t('settings.pageFailed')));
+  }
 }
 
 async function toggleChecks(event: Event): Promise<void> {
   await saveSettings({ checkUpdates: (event.target as HTMLInputElement).checked }).catch((cause) =>
-    warn(cause, 'The setting could not be saved.'),
+    warn(cause, t('settings.saveFailed')),
   );
 }
 
@@ -104,7 +131,7 @@ interface Activity {
   agent: string;
   tool: string;
   ok: boolean;
-  summary: string;
+  summary: Summary | string | null;
   tutorial: string | null;
 }
 
@@ -118,8 +145,8 @@ const clients = computed(() => {
   const status = agents.value;
   if (!status) return [];
   return [
-    { id: 'claude', name: 'Claude Code', client: status.claude, command: status.claudeCommand },
-    { id: 'codex', name: 'Codex', client: status.codex, command: status.codexCommand },
+    { id: 'claude', name: 'Claude Code', client: status.claude },
+    { id: 'codex', name: 'Codex', client: status.codex },
   ];
 });
 const recent = computed(() => [...activity.value].reverse().slice(0, 40));
@@ -130,31 +157,44 @@ function clientState(client: Client): {
   detail: string;
 } {
   if (client.connected) {
-    return { label: 'Connected', tone: 'on', detail: 'It starts this studio in every project.' };
+    return { label: t('mcp.connected'), tone: 'on', detail: t('mcp.connectedDetail') };
   }
   if (client.local.length) {
     return {
-      label: 'One project only',
+      label: t('mcp.oneProject'),
       tone: 'warn',
-      detail: `${client.local.length === 1 ? 'A folder declares' : `${client.local.length} folders declare`} the studio on its own. Connect again to reach it from every project.`,
+      detail: t('mcp.oneProjectDetail', { count: client.local.length }),
     };
   }
   if (client.declared) {
     return {
-      label: 'Another copy',
+      label: t('mcp.anotherCopy'),
       tone: 'warn',
-      detail: `It starts another copy of the studio: ${client.declared}`,
+      detail: t('mcp.anotherCopyDetail', { path: client.declared }),
     };
   }
-  return { label: 'Not connected', tone: 'off', detail: 'It does not know the studio yet.' };
+  return { label: t('mcp.notConnected'), tone: 'off', detail: t('mcp.notConnectedDetail') };
 }
 
 const skillLabel = (client: Client) =>
   client.skill === 'current'
-    ? 'Skill up to date'
+    ? t('mcp.skillCurrent')
     : client.skill === 'outdated'
-      ? 'Update the skill'
-      : 'Install the skill';
+      ? t('mcp.skillOutdated')
+      : t('mcp.skillMissing');
+
+/** What an entry of the journal says, in the language of the day. */
+function entryText(entry: Activity): string {
+  if (!entry.ok) {
+    return t('mcp.failed', { message: typeof entry.summary === 'string' ? entry.summary : '' });
+  }
+  return summaryText(entry.summary) || toolTitle(entry.tool);
+}
+
+function toolTitle(name: string): string {
+  const key = `tool.${name}`;
+  return isMessageKey(key) ? t(key) : name;
+}
 
 async function refreshAgents(): Promise<void> {
   try {
@@ -162,7 +202,7 @@ async function refreshAgents(): Promise<void> {
     listening.value = await invoke<{ port: number; ready: boolean }>('agent_listening');
     activity.value = await invoke<Activity[]>('agent_activity');
   } catch (cause) {
-    warn(cause, 'The agents could not be read.');
+    warn(cause, t('mcp.readFailed'));
   }
 }
 
@@ -170,9 +210,9 @@ async function connect(id: string, name: string): Promise<void> {
   working.value = `connect-${id}`;
   try {
     await invoke('agents_connect', { client: id });
-    notify(`${name} now reaches the studio. Start a new session of ${name} to use it.`);
+    notify(t('mcp.connectedToast', { agent: name }));
   } catch (cause) {
-    warn(cause, `${name} could not be connected.`);
+    warn(cause, t('mcp.connectFailed', { agent: name }));
   } finally {
     working.value = '';
     await refreshAgents();
@@ -183,9 +223,9 @@ async function installSkill(id: string, name: string): Promise<void> {
   working.value = `skill-${id}`;
   try {
     await invoke<string>('agents_install_skill', { client: id });
-    notify(`The skill is ready for ${name}.`);
+    notify(t('mcp.skillReady', { agent: name }));
   } catch (cause) {
-    warn(cause, 'The skill could not be installed.');
+    warn(cause, t('mcp.skillFailed'));
   } finally {
     working.value = '';
     await refreshAgents();
@@ -194,11 +234,11 @@ async function installSkill(id: string, name: string): Promise<void> {
 
 async function toggleAgents(event: Event): Promise<void> {
   await saveSettings({ agents: (event.target as HTMLInputElement).checked }).catch((cause) =>
-    warn(cause, 'The setting could not be saved.'),
+    warn(cause, t('settings.saveFailed')),
   );
 }
 
-async function copy(text: string, what: string): Promise<void> {
+async function copy(text: string, done: MessageKey): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -209,17 +249,25 @@ async function copy(text: string, what: string): Promise<void> {
     document.execCommand('copy');
     field.remove();
   }
-  notify(`${what} copied`);
+  notify(t(done));
 }
 
-const toolTitles = computed(() => catalog.map((tool) => ({ name: tool.name, title: tool.title })));
+function activityMenu(event: MouseEvent, entry: Activity): void {
+  if (!entry.tutorial) return;
+  const path = entry.tutorial;
+  contextMenu(
+    event,
+    [{ label: t('menu.openTutorial'), icon: 'edit', run: () => emit('open', path) }],
+    t('mcp.activity'),
+  );
+}
 
 // Library.
 
 const customLibrary = computed(() => Boolean(settings.value?.library));
 
 async function chooseLibrary(): Promise<void> {
-  const folder = await pickFolder({ directory: true, title: 'Folder of the library' }).catch(
+  const folder = await pickFolder({ directory: true, title: t('librarySettings.dialog') }).catch(
     () => null,
   );
   if (typeof folder !== 'string') return;
@@ -230,23 +278,24 @@ async function moveLibrary(folder: string | null): Promise<void> {
   try {
     await saveSettings({ library: folder });
     await loadInfo();
-    notify('The studio now shows this library');
+    notify(t('librarySettings.changed'));
   } catch (cause) {
-    warn(cause, 'The library could not be changed.');
+    warn(cause, t('librarySettings.changeFailed'));
   }
 }
 
-const shortcuts: { keys: string[]; what: string }[] = [
-  { keys: ['Space'], what: 'Play or pause the tutorial' },
-  { keys: ['←', '→'], what: 'Previous or next step' },
-  { keys: ['Alt', '↑ / ↓'], what: 'Move the selected step in the steps panel' },
-  { keys: ['Delete'], what: 'Delete the selected marker, or the step' },
-  { keys: ['Ctrl', 'D'], what: 'Duplicate the step' },
-  { keys: ['Ctrl', 'Z'], what: 'Undo' },
-  { keys: ['Ctrl', 'Y'], what: 'Redo' },
-  { keys: ['Ctrl', 'R'], what: 'Start or stop recording' },
-  { keys: ['Esc'], what: 'Leave the player or the browser' },
-];
+const shortcuts = computed<{ keys: string[]; what: string }[]>(() => [
+  { keys: [t('keys.space')], what: t('shortcuts.play') },
+  { keys: ['←', '→'], what: t('shortcuts.steps') },
+  { keys: [t('keys.alt'), '↑ / ↓'], what: t('shortcuts.move') },
+  { keys: [t('keys.delete')], what: t('shortcuts.delete') },
+  { keys: [t('keys.ctrl'), 'D'], what: t('shortcuts.duplicate') },
+  { keys: [t('keys.ctrl'), 'Z'], what: t('shortcuts.undo') },
+  { keys: [t('keys.ctrl'), 'Y'], what: t('shortcuts.redo') },
+  { keys: [t('keys.ctrl'), 'R'], what: t('shortcuts.record') },
+  { keys: [t('keys.escape')], what: t('shortcuts.escape') },
+  { keys: [t('keys.shift'), 'F10'], what: t('shortcuts.menu') },
+]);
 
 onMounted(async () => {
   await Promise.all([loadSettings(), loadInfo()]).catch(() => undefined);
@@ -274,54 +323,89 @@ onUnmounted(() => {
 
 <template>
   <div class="settings">
-    <aside class="plan" aria-label="Settings">
+    <aside class="plan" :aria-label="t('common.settings')">
       <header class="plan-head">
         <Logo :size="26" />
         <span class="plan-name">Interactive Learning</span>
       </header>
-      <nav class="plan-sites" aria-label="Sections of the settings">
+      <nav class="plan-sites" :aria-label="t('settings.sections')">
         <button type="button" class="room-link settings-back" @click="emit('close')">
           <Icon name="left" :size="15" />
-          <span>Library</span>
+          <span>{{ t('common.library') }}</span>
         </button>
-        <h2 class="plan-title">Settings</h2>
-        <button
-          v-for="entry in tabs"
-          :key="entry.id"
-          type="button"
-          class="settings-tab"
-          :aria-current="entry.id === props.tab ? 'page' : undefined"
-          @click="emit('tab', entry.id)"
-        >
-          <Icon :name="entry.icon" :size="16" />
-          <span class="site-name">{{ entry.label }}</span>
-          <span
-            v-if="entry.id === 'updates' && update.phase === 'available'"
-            class="badge-dot"
-            aria-label="A new version is available"
-          ></span>
-        </button>
+        <h2 class="plan-title">{{ t('common.settings') }}</h2>
+        <div class="settings-tabs">
+          <button
+            v-for="entry in tabs"
+            :key="entry.id"
+            type="button"
+            class="settings-tab"
+            :aria-current="entry.id === props.tab ? 'page' : undefined"
+            @click="emit('tab', entry.id)"
+          >
+            <Icon :name="entry.icon" :size="16" />
+            <span class="site-name">{{ t(entry.label) }}</span>
+            <span
+              v-if="entry.id === 'updates' && update.phase === 'available'"
+              class="badge-dot"
+              :aria-label="t('common.newVersion')"
+            ></span>
+          </button>
+        </div>
       </nav>
       <footer class="plan-foot">
-        <p class="settings-version tabular">Version {{ info?.version ?? '…' }}</p>
+        <p class="settings-version tabular">
+          {{ t('settings.version', { version: info?.version ?? '…' }) }}
+        </p>
       </footer>
     </aside>
 
     <main class="settings-page">
-      <!-- Updates -->
-      <section v-if="props.tab === 'updates'" class="settings-body" aria-labelledby="updates-title">
+      <!-- General -->
+      <section v-if="props.tab === 'general'" class="settings-body" aria-labelledby="general-title">
         <header class="settings-head">
-          <h1 id="updates-title">Updates</h1>
-          <p>
-            New versions of the studio come from its releases on GitHub. Installing one keeps your
-            library and your settings.
-          </p>
+          <h1 id="general-title">{{ t('general.title') }}</h1>
+          <p>{{ t('general.intro') }}</p>
+        </header>
+        <div class="settings-group">
+          <h2 class="group-title">{{ t('general.language') }}</h2>
+          <div class="setting-row">
+            <span class="setting-text">
+              <span class="hint">{{ t('general.languageHint') }}</span>
+              <span class="hint">{{ t('general.follows', { language: computerLanguage }) }}</span>
+            </span>
+            <div class="segmented" role="radiogroup" :aria-label="t('general.language')">
+              <button
+                v-for="language in languages"
+                :key="language.id"
+                type="button"
+                role="radio"
+                :aria-checked="choice === language.id"
+                :lang="language.id === 'auto' ? locale : language.id"
+                @click="pickLanguage(language.id)"
+              >
+                {{ language.label() }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Updates -->
+      <section
+        v-else-if="props.tab === 'updates'"
+        class="settings-body"
+        aria-labelledby="updates-title"
+      >
+        <header class="settings-head">
+          <h1 id="updates-title">{{ t('updates.title') }}</h1>
+          <p>{{ t('updates.intro') }}</p>
         </header>
 
         <div class="settings-group">
           <div class="setting-row">
             <div class="setting-text">
-              <strong>Interactive Learning Studio {{ info?.version }}</strong>
+              <strong>{{ t('updates.product', { version: info?.version ?? '' }) }}</strong>
               <span class="hint">{{ installNote }}</span>
             </div>
             <button
@@ -330,43 +414,48 @@ onUnmounted(() => {
               :disabled="busyUpdating()"
               @click="checkForUpdates"
             >
-              <Icon name="reload" :size="15" />Check now
+              <Icon name="reload" :size="15" />{{ t('updates.check') }}
             </button>
           </div>
 
           <p class="update-line" :data-phase="update.phase" role="status">
             <template v-if="update.phase === 'checking'">
-              <span class="spinner" aria-hidden="true"></span>Looking for a new version…
+              <span class="spinner" aria-hidden="true"></span>{{ t('updates.checking') }}
             </template>
             <template v-else-if="update.phase === 'current'">
-              <Icon name="published" :size="16" />The studio is up to date.
-              <span class="hint">Checked {{ since(update.checkedAt) }}</span>
+              <Icon name="published" :size="16" />{{ t('updates.current') }}
+              <span class="hint">{{
+                t('updates.checked', { when: since(update.checkedAt) })
+              }}</span>
             </template>
             <template v-else-if="update.phase === 'available'">
-              <Icon name="info" :size="16" />Version {{ latest?.version }} is available.
+              <Icon name="info" :size="16" />{{
+                t('updates.available', { version: latest?.version ?? '' })
+              }}
             </template>
             <template v-else-if="update.phase === 'downloading'">
-              <span class="spinner" aria-hidden="true"></span>Downloading version
-              {{ latest?.version }}…
-              <span class="hint tabular"
-                >{{ megabytes(update.done) }} of {{ megabytes(update.total) }}</span
-              >
+              <span class="spinner" aria-hidden="true"></span
+              >{{ t('updates.downloading', { version: latest?.version ?? '' }) }}
+              <span class="hint tabular">{{
+                t('updates.progress', {
+                  done: megabytes(update.done),
+                  total: megabytes(update.total),
+                })
+              }}</span>
             </template>
             <template v-else-if="update.phase === 'installing'">
               <span class="spinner" aria-hidden="true"></span>
-              <template v-if="update.installedBy === 'package'"
-                >The package of version {{ latest?.version }} opened in your software installer.
-                Finish there, then open the studio again.</template
-              >
-              <template v-else
-                >Installing version {{ latest?.version }}. The studio closes and opens again in a
-                moment.</template
-              >
+              <template v-if="update.installedBy === 'package'">{{
+                t('updates.package', { version: latest?.version ?? '' })
+              }}</template>
+              <template v-else>{{
+                t('updates.installing', { version: latest?.version ?? '' })
+              }}</template>
             </template>
             <template v-else-if="update.phase === 'failed'">
               <Icon name="alert" :size="16" /><span class="error-text">{{ update.error }}</span>
             </template>
-            <template v-else>Not checked yet.</template>
+            <template v-else>{{ t('updates.idle') }}</template>
           </p>
 
           <div v-if="update.phase === 'downloading'" class="progress" aria-hidden="true">
@@ -376,19 +465,19 @@ onUnmounted(() => {
           <article
             v-if="latest && update.check?.available && update.phase !== 'checking'"
             class="release"
-            aria-label="The new version"
+            :aria-label="t('updates.newVersion')"
           >
             <header class="release-head">
-              <h2>Version {{ latest.version }}</h2>
+              <h2>{{ t('updates.version', { version: latest.version }) }}</h2>
               <span class="hint tabular">
                 <template v-if="published">{{ published }}</template>
                 <template v-if="latest.asset"> · {{ megabytes(latest.asset.size) }}</template>
               </span>
             </header>
-            <ul v-if="latest.notes.length" class="release-notes">
+            <ul v-if="latest.notes.length" class="release-notes" lang="en">
               <li v-for="note in latest.notes" :key="note">{{ note }}</li>
             </ul>
-            <p v-else class="hint">This version has no notes.</p>
+            <p v-else class="hint">{{ t('updates.noNotes') }}</p>
             <footer class="release-actions">
               <button
                 type="button"
@@ -396,10 +485,10 @@ onUnmounted(() => {
                 :disabled="!canInstall || busyUpdating()"
                 @click="installUpdate"
               >
-                <Icon name="download" :size="16" />Download and install
+                <Icon name="download" :size="16" />{{ t('updates.install') }}
               </button>
               <button type="button" class="button quiet" @click="openPage(latest.page)">
-                <Icon name="external" :size="15" />See on GitHub
+                <Icon name="external" :size="15" />{{ t('updates.github') }}
               </button>
             </footer>
             <p v-if="!canInstall" class="hint">{{ installNote }}</p>
@@ -407,13 +496,11 @@ onUnmounted(() => {
         </div>
 
         <div class="settings-group">
-          <h2 class="group-title">Automatic</h2>
+          <h2 class="group-title">{{ t('updates.automatic') }}</h2>
           <label class="setting-row">
             <span class="setting-text">
-              <strong>Look for a new version each time the studio starts</strong>
-              <span class="hint"
-                >The studio says when one is ready to install, and you choose when.</span
-              >
+              <strong>{{ t('updates.checkOnStart') }}</strong>
+              <span class="hint">{{ t('updates.checkOnStartHint') }}</span>
             </span>
             <input
               type="checkbox"
@@ -423,7 +510,7 @@ onUnmounted(() => {
             />
           </label>
           <button type="button" class="link-button" @click="openPage(info?.releases)">
-            <Icon name="external" :size="14" />Every version of the studio
+            <Icon name="external" :size="14" />{{ t('updates.every') }}
           </button>
         </div>
       </section>
@@ -431,28 +518,18 @@ onUnmounted(() => {
       <!-- MCP -->
       <section v-else-if="props.tab === 'mcp'" class="settings-body" aria-labelledby="mcp-title">
         <header class="settings-head">
-          <h1 id="mcp-title">MCP</h1>
-          <p>
-            AI agents such as Claude Code and Codex can drive the studio through its MCP server. An
-            agent opens your site in the browser of the studio, records its clicks as steps, writes
-            the texts and publishes, here in this window, where you watch and can take over. What it
-            makes joins your library, so you can come back to it.
-          </p>
+          <h1 id="mcp-title">{{ t('mcp.title') }}</h1>
+          <p>{{ t('mcp.intro') }}</p>
         </header>
 
         <div class="settings-group">
           <label class="setting-row">
             <span class="setting-text">
-              <strong>Let AI agents drive the studio</strong>
+              <strong>{{ t('mcp.allow') }}</strong>
               <span class="hint">
-                <template v-if="settings?.agents === false"
-                  >Off: agents can no longer change anything in the studio.</template
-                >
-                <template v-else-if="listening?.port"
-                  >On. Agents reach this studio from this computer only, never from a
-                  website.</template
-                >
-                <template v-else>The studio could not open its address for agents.</template>
+                <template v-if="settings?.agents === false">{{ t('mcp.off') }}</template>
+                <template v-else-if="listening?.port">{{ t('mcp.on') }}</template>
+                <template v-else>{{ t('mcp.noAddress') }}</template>
               </span>
             </span>
             <input
@@ -465,7 +542,7 @@ onUnmounted(() => {
         </div>
 
         <div class="settings-group">
-          <h2 class="group-title">Connect an agent</h2>
+          <h2 class="group-title">{{ t('mcp.connect') }}</h2>
           <div v-for="entry in clients" :key="entry.id" class="agent-row">
             <div class="agent-head">
               <strong>{{ entry.name }}</strong>
@@ -482,14 +559,16 @@ onUnmounted(() => {
                 @click="connect(entry.id, entry.name)"
               >
                 <Icon name="plug" :size="15" />{{
-                  entry.client.connected ? 'Connect again' : `Connect ${entry.name}`
+                  entry.client.connected
+                    ? t('mcp.connectAgain')
+                    : t('mcp.connectAgent', { agent: entry.name })
                 }}
               </button>
               <button
                 type="button"
                 class="button quiet"
                 :disabled="working !== '' || entry.client.skill === 'current'"
-                :title="'The skill teaches the agent how to make a good tutorial with the studio'"
+                :title="t('mcp.skillTitle')"
                 @click="installSkill(entry.id, entry.name)"
               >
                 <Icon
@@ -499,71 +578,68 @@ onUnmounted(() => {
               </button>
             </div>
           </div>
-          <p class="hint">
-            After connecting, start a new session of the agent, then ask it to record a tutorial of
-            your site.
-          </p>
+          <p class="hint">{{ t('mcp.afterConnect') }}</p>
         </div>
 
         <div v-if="agents" class="settings-group">
-          <h2 class="group-title">Other agents</h2>
-          <p class="hint">
-            Claude Desktop, Cursor and other clients start the studio with this configuration.
-          </p>
+          <h2 class="group-title">{{ t('mcp.others') }}</h2>
+          <p class="hint">{{ t('mcp.othersHint') }}</p>
           <div class="code-block">
             <pre class="code">{{ agents.json }}</pre>
             <button
               type="button"
               class="button small"
-              @click="copy(agents.json, 'The configuration')"
+              @click="copy(agents.json, 'mcp.configCopied')"
             >
-              <Icon name="copy" :size="14" />Copy
+              <Icon name="copy" :size="14" />{{ t('common.copy') }}
             </button>
           </div>
-          <p class="hint">Or in a terminal, for Claude Code:</p>
+          <p class="hint">{{ t('mcp.terminal') }}</p>
           <div class="code-block">
             <pre class="code">{{ agents.claudeCommand }}</pre>
             <button
               type="button"
               class="button small"
-              @click="copy(agents.claudeCommand, 'The command')"
+              @click="copy(agents.claudeCommand, 'mcp.commandCopied')"
             >
-              <Icon name="copy" :size="14" />Copy
+              <Icon name="copy" :size="14" />{{ t('common.copy') }}
             </button>
           </div>
         </div>
 
         <div class="settings-group">
-          <h2 class="group-title">What an agent can do</h2>
+          <h2 class="group-title">{{ t('mcp.tools') }}</h2>
           <ul class="tool-list">
-            <li v-for="tool in toolTitles" :key="tool.name">
-              <span>{{ tool.title }}</span>
+            <li v-for="tool in catalog" :key="tool.name">
+              <span>{{ toolTitle(tool.name) }}</span>
               <code>{{ tool.name }}</code>
             </li>
           </ul>
         </div>
 
         <div class="settings-group">
-          <h2 class="group-title">Recent activity</h2>
+          <h2 class="group-title">{{ t('mcp.activity') }}</h2>
           <ol v-if="recent.length" class="activity">
-            <li v-for="(entry, index) in recent" :key="`${entry.at}-${index}`" :data-ok="entry.ok">
+            <li
+              v-for="(entry, index) in recent"
+              :key="`${entry.at}-${index}`"
+              :data-ok="entry.ok"
+              @contextmenu="activityMenu($event, entry)"
+            >
               <time class="tabular" :datetime="entry.at">{{ since(entry.at) }}</time>
               <span class="activity-agent">{{ entry.agent }}</span>
-              <span class="activity-text">{{ entry.summary || entry.tool }}</span>
+              <span class="activity-text">{{ entryText(entry) }}</span>
               <button
                 v-if="entry.tutorial"
                 type="button"
                 class="button small quiet"
                 @click="emit('open', entry.tutorial)"
               >
-                Open
+                {{ t('common.open') }}
               </button>
             </li>
           </ol>
-          <p v-else class="hint">
-            Nothing yet. What agents make in the studio shows here, with a way back to each
-            tutorial.
-          </p>
+          <p v-else class="hint">{{ t('mcp.noActivity') }}</p>
         </div>
       </section>
 
@@ -574,15 +650,11 @@ onUnmounted(() => {
         aria-labelledby="library-title"
       >
         <header class="settings-head">
-          <h1 id="library-title">Library</h1>
-          <p>
-            Your sites, themes and tutorials live in one folder on this computer, with a folder for
-            each of them. Every Interactive Learning tool opens them, and you can back them up or
-            share them like any other file.
-          </p>
+          <h1 id="library-title">{{ t('librarySettings.title') }}</h1>
+          <p>{{ t('librarySettings.intro') }}</p>
         </header>
         <div class="settings-group">
-          <h2 class="group-title">Folder</h2>
+          <h2 class="group-title">{{ t('librarySettings.folder') }}</h2>
           <div class="folder-pick">
             <span class="folder-value" :title="info?.library">{{ info?.library }}</span>
             <button
@@ -591,28 +663,27 @@ onUnmounted(() => {
               @click="
                 library
                   .reveal(info?.library ?? '', true)
-                  .catch((cause) => warn(cause, 'The folder could not be shown.'))
+                  .catch((cause) => warn(cause, t('library.revealFailed')))
               "
             >
-              <Icon name="folder" :size="15" />{{ revealLabel }}
+              <Icon name="folder" :size="15" />{{ revealLabel() }}
             </button>
-            <button type="button" class="button" @click="chooseLibrary">Change…</button>
+            <button type="button" class="button" @click="chooseLibrary">
+              {{ t('librarySettings.change') }}
+            </button>
           </div>
           <button v-if="customLibrary" type="button" class="link-button" @click="moveLibrary(null)">
-            Use the default folder, {{ info?.defaultLibrary }}
+            {{ t('librarySettings.useDefault', { folder: info?.defaultLibrary ?? '' }) }}
           </button>
-          <p class="hint">
-            Another folder does not move your tutorials: the studio shows the library of the folder
-            you choose, and the previous one stays where it is.
-          </p>
+          <p class="hint">{{ t('librarySettings.hint') }}</p>
         </div>
       </section>
 
       <!-- Shortcuts -->
       <section v-else class="settings-body" aria-labelledby="shortcuts-title">
         <header class="settings-head">
-          <h1 id="shortcuts-title">Shortcuts</h1>
-          <p>The keys of the editor. A text field keeps its own keys while you type in it.</p>
+          <h1 id="shortcuts-title">{{ t('shortcuts.title') }}</h1>
+          <p>{{ t('shortcuts.intro') }}</p>
         </header>
         <div class="settings-group">
           <dl class="keys">

@@ -61,6 +61,8 @@ pub struct Settings {
     pub agents: bool,
     /// The library folder, when the creator moved it away from `Documents/Interactive Learning`.
     pub library: Option<String>,
+    /// `auto` to speak the language of the computer, or `en` or `fr`.
+    pub language: String,
 }
 
 impl Default for Settings {
@@ -69,6 +71,7 @@ impl Default for Settings {
             check_updates: true,
             agents: true,
             library: None,
+            language: "auto".to_string(),
         }
     }
 }
@@ -108,7 +111,8 @@ mod tests {
             Settings {
                 check_updates: true,
                 agents: false,
-                library: None
+                library: None,
+                language: "auto".to_string(),
             }
         );
         let settings: Settings = serde_json::from_str("{}").unwrap();

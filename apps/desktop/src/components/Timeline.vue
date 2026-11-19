@@ -4,6 +4,7 @@ import type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
 import { markerNumber } from '@interactive-learning/editor/draft';
 import Icon from './Icon.vue';
 import { clampDuration, seconds, stepStarts } from '../editing';
+import { t } from '../i18n';
 import { runtime, timecode } from '../library';
 
 /**
@@ -27,6 +28,8 @@ const emit = defineEmits<{
   transition: [stepId: string];
   duplicate: [];
   remove: [];
+  menu: [event: MouseEvent, stepId: string];
+  'marker-menu': [event: MouseEvent, stepId: string, markerId: string];
 }>();
 
 const zoom = ref(48);
@@ -111,6 +114,7 @@ function timeAt(event: PointerEvent, beyond = false): number {
 }
 
 function seekFrom(event: PointerEvent): void {
+  if (event.button !== 0) return;
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   emit('seek', timeAt(event));
 }
@@ -154,6 +158,7 @@ function drop(): void {
 }
 
 function startResize(step: GuideStep, index: number, event: PointerEvent): void {
+  if (event.button !== 0) return;
   (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   resizing = { stepId: step.id, left: timing.value.starts[index] ?? 0 };
   emit('select', step.id);
@@ -211,12 +216,12 @@ watch(
 </script>
 
 <template>
-  <section class="timeline" aria-label="Timeline">
+  <section class="timeline" :aria-label="t('timeline.panel')">
     <header class="timeline-bar">
       <button
         type="button"
         class="button icon small quiet"
-        title="Duplicate step (Ctrl+D)"
+        :title="t('timeline.duplicate')"
         :disabled="!selectedId"
         @click="emit('duplicate')"
       >
@@ -225,7 +230,7 @@ watch(
       <button
         type="button"
         class="button icon small quiet"
-        title="Delete step (Delete)"
+        :title="t('timeline.delete')"
         :disabled="!selectedId"
         @click="emit('remove')"
       >
@@ -233,15 +238,14 @@ watch(
       </button>
       <span class="timeline-spacer"></span>
       <span class="timeline-total tabular"
-        >{{ guide.steps.length === 1 ? '1 step' : `${guide.steps.length} steps` }} ·
-        {{ timecode(timing.total) }}</span
+        >{{ t('common.steps', { count: guide.steps.length }) }} · {{ timecode(timing.total) }}</span
       >
-      <button type="button" class="button small quiet" title="Show the whole tutorial" @click="fit">
-        <Icon name="fit" :size="15" />Fit
+      <button type="button" class="button small quiet" :title="t('timeline.fitTitle')" @click="fit">
+        <Icon name="fit" :size="15" />{{ t('timeline.fit') }}
       </button>
-      <label class="zoom" title="Zoom the timeline">
+      <label class="zoom" :title="t('timeline.zoomTitle')">
         <Icon name="zoomOut" :size="15" />
-        <span class="visually-hidden">Zoom</span>
+        <span class="visually-hidden">{{ t('timeline.zoom') }}</span>
         <input
           v-model.number="zoom"
           type="range"
@@ -257,8 +261,12 @@ watch(
     <div class="timeline-body">
       <div class="track-names" aria-hidden="true">
         <span class="track-name ruler-name"></span>
-        <span class="track-name steps-name"><Icon name="camera" :size="14" />Steps</span>
-        <span class="track-name markers-name"><Icon name="marker" :size="14" />Markers</span>
+        <span class="track-name steps-name"
+          ><Icon name="camera" :size="14" />{{ t('timeline.steps') }}</span
+        >
+        <span class="track-name markers-name"
+          ><Icon name="marker" :size="14" />{{ t('timeline.markers') }}</span
+        >
       </div>
 
       <div
@@ -284,7 +292,7 @@ watch(
           <div
             class="lane steps-lane"
             role="listbox"
-            aria-label="Steps"
+            :aria-label="t('timeline.steps')"
             aria-orientation="horizontal"
           >
             <div
@@ -294,23 +302,30 @@ watch(
               role="option"
               :data-step="step.id"
               :aria-selected="step.id === selectedId"
-              :aria-label="`Step ${index + 1}: ${step.title || 'Untitled'}, ${seconds(step.durationMs)}`"
+              :aria-label="
+                t('timeline.clip', {
+                  number: index + 1,
+                  title: step.title || t('common.untitledStep'),
+                  duration: seconds(step.durationMs),
+                })
+              "
               :class="{
                 selected: step.id === selectedId,
                 lifted: dragging?.moved && dragging.index === index,
               }"
               :style="place(index, step)"
               @pointerdown="grab(index, $event)"
+              @contextmenu="emit('menu', $event, step.id)"
             >
               <span class="clip-shot" :style="filmStyle(step)"></span>
               <span class="clip-caption">
                 <span class="clip-number tabular">{{ index + 1 }}</span>
-                <span class="clip-title">{{ step.title || 'Untitled step' }}</span>
+                <span class="clip-title">{{ step.title || t('common.untitledStep') }}</span>
                 <span class="clip-time tabular">{{ seconds(step.durationMs) }}</span>
               </span>
               <span
                 class="clip-handle"
-                title="Drag to change how long this step plays"
+                :title="t('timeline.resize')"
                 @pointerdown.stop="startResize(step, index, $event)"
                 @pointermove="resize"
                 @pointerup="endResize"
@@ -326,8 +341,8 @@ watch(
               :style="{ left: `${px(timing.starts[index + 1] ?? 0)}px` }"
               :title="
                 step.transition === 'cut'
-                  ? `Step ${index + 2} cuts in. Click to fade.`
-                  : `Step ${index + 2} fades in. Click to cut.`
+                  ? t('timeline.cutsIn', { number: index + 2 })
+                  : t('timeline.fadesIn', { number: index + 2 })
               "
               @click="emit('transition', step.id)"
             >
@@ -355,13 +370,14 @@ watch(
                   :key="marker.id"
                   type="button"
                   class="marker-chip tabular"
-                  :title="marker.title || 'Marker'"
+                  :title="marker.title || t('common.marker')"
                   @click="emit('select-marker', step.id, marker.id)"
+                  @contextmenu="emit('marker-menu', $event, step.id, marker.id)"
                 >
                   <span class="marker-chip-number">{{
                     markerNumber(guide.steps, index) + position
                   }}</span>
-                  <span class="marker-chip-title">{{ marker.title || 'Marker' }}</span>
+                  <span class="marker-chip-title">{{ marker.title || t('common.marker') }}</span>
                 </button>
               </span>
             </template>

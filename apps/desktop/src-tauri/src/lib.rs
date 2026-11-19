@@ -4,6 +4,8 @@
 //! The same program is the MCP server of the studio with `--mcp` (`mcp.rs`): AI agents drive the
 //! running studio through it, by the local address of `control.rs`.
 
+#[macro_use]
+mod i18n;
 mod control;
 mod engine;
 mod home;
@@ -85,8 +87,12 @@ struct Capture {
 }
 
 pub(crate) fn site(app: &AppHandle) -> Result<Webview, String> {
-    app.get_webview(SITE)
-        .ok_or_else(|| "The site view is not ready yet.".to_string())
+    app.get_webview(SITE).ok_or_else(|| {
+        tr!(
+            "The site view is not ready yet.",
+            "La vue du site n'est pas encore prête."
+        )
+    })
 }
 
 /// Opens an address in the site view. An address without a scheme gets https.
@@ -100,9 +106,17 @@ fn site_navigate(app: AppHandle, url: String) -> Result<String, String> {
     } else {
         format!("https://{text}")
     };
-    let target = tauri::Url::parse(&full).map_err(|_| format!("{text} is not a web address."))?;
+    let target = tauri::Url::parse(&full).map_err(|_| {
+        tr!(
+            "{text} is not a web address.",
+            "{text} n'est pas une adresse web."
+        )
+    })?;
     if !matches!(target.scheme(), "http" | "https") {
-        return Err("Only http and https addresses can be opened.".to_string());
+        return Err(tr!(
+            "Only http and https addresses can be opened.",
+            "Seules les adresses http et https s'ouvrent ici."
+        ));
     }
     site(&app)?
         .navigate(target.clone())
@@ -272,6 +286,7 @@ fn settings_read() -> home::Settings {
 fn settings_write(app: AppHandle, settings: home::Settings) -> Result<home::Settings, String> {
     let before = home::settings();
     home::save_settings(&settings)?;
+    i18n::apply(&settings.language);
     if before.library != settings.library && std::env::var_os("IL_DESKTOP_SELFTEST").is_none() {
         let root = home::library();
         std::fs::create_dir_all(&root).map_err(|error| error.to_string())?;
@@ -313,9 +328,17 @@ fn app_info(app: AppHandle) -> AppInfo {
 /// Opens an address of the web in the browser of the system, such as the page of a release.
 #[tauri::command]
 fn open_external(url: String) -> Result<(), String> {
-    let target = tauri::Url::parse(&url).map_err(|_| format!("{url} is not a web address."))?;
+    let target = tauri::Url::parse(&url).map_err(|_| {
+        tr!(
+            "{url} is not a web address.",
+            "{url} n'est pas une adresse web."
+        )
+    })?;
     if target.scheme() != "https" {
-        return Err("Only https addresses open in the browser.".to_string());
+        return Err(tr!(
+            "Only https addresses open in the browser.",
+            "Seules les adresses https s'ouvrent dans le navigateur."
+        ));
     }
     #[cfg(windows)]
     let opened = {
@@ -358,6 +381,7 @@ pub fn run() {
             .as_ref()
             .map(|folder| std::path::PathBuf::from(folder).join("home")),
     );
+    i18n::apply(&home::settings().language);
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(updater::Updater::default())
@@ -376,6 +400,7 @@ pub fn run() {
             settings_write,
             app_info,
             open_external,
+            i18n::system_locale,
             library::library_root,
             library::library_scan,
             library::library_delete,

@@ -26,6 +26,8 @@ getrandom = "0.3"
 # The releases of the studio on GitHub, and the SHA-256 of what an update downloads.
 ureq = "3.5"
 sha2 = "0.10"
+# The language of the computer, which the studio speaks unless Settings chose another.
+sys-locale = "0.3"
 
 # Same versions as Tauri's WebView2 runtime, to reach its DevTools protocol.
 [target.'cfg(windows)'.dependencies]

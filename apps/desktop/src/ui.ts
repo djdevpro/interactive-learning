@@ -35,16 +35,5 @@ export function dismiss(): void {
   toast.value = null;
 }
 
-/** `5 min ago`, `yesterday`, or a date, for when a tutorial changed. */
-export function since(iso: string | null | undefined, now = Date.now()): string {
-  if (!iso) return '';
-  const time = Date.parse(iso);
-  if (Number.isNaN(time)) return '';
-  const minutes = Math.round((now - time) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  if (hours < 48) return 'yesterday';
-  return new Date(time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-}
+/** `5 min ago`, `yesterday`, or a date, in the language of the studio. */
+export { since } from './i18n';

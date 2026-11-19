@@ -43,7 +43,7 @@ async fn call(view: &Webview, method: &str, params: String) -> Result<String, St
     .map_err(|error| error.to_string())?;
     receiver
         .await
-        .map_err(|_| "The engine did not answer.".to_string())?
+        .map_err(|_| tr!("The engine did not answer.", "Le moteur n'a pas répondu."))?
 }
 
 /// Evaluates an expression in the page and returns its value as JSON.
@@ -204,8 +204,11 @@ pub async fn screenshot(view: &Webview, shot: Shot) -> Result<String, String> {
     let reply: serde_json::Value =
         serde_json::from_str(&call(view, "Page.captureScreenshot", params.to_string()).await?)
             .map_err(|error| error.to_string())?;
-    let data = reply["data"]
-        .as_str()
-        .ok_or_else(|| "The screenshot came back empty.".to_string())?;
+    let data = reply["data"].as_str().ok_or_else(|| {
+        tr!(
+            "The screenshot came back empty.",
+            "La capture est revenue vide."
+        )
+    })?;
     Ok(format!("data:image/{format};base64,{data}"))
 }
