@@ -166,7 +166,7 @@ The studio is a video editor for tutorials, built to the category standard with 
 
 Color is functional and scarce. Everything is grey except three signals: the green of the logo for the main action, selection and focus; red only for recording; and the label color of each theme, carried by its clips like clip colors in an editor. Type is Segoe UI Variable at a compact 13px, so long sessions fit a lot on screen, and every time and count uses tabular figures so numbers do not jump while playing.
 
-Two screens share the system. The library is a project browser: sites in a left panel, the tutorials of the open site grouped by theme as thumbnails. The editor is the editing bay: toolbar, steps panel, viewer with its bar and transport, properties panel, and the timeline below.
+Three screens share the system. The library is a project browser: sites in a left panel, the tutorials of the open site grouped by theme as thumbnails. The editor is the editing bay: toolbar, steps panel, viewer with its bar and transport, properties panel, and the timeline below. Settings, opened from the bottom left of the library, keeps the left panel of the library for its sections and shows one section beside it.
 
 **Key Characteristics:**
 
@@ -247,6 +247,8 @@ The window never scrolls; regions scroll inside it.
 
 **Library.** Two columns: a 252px sites panel (the logo and the app name in a 52px head, sites with their themes nested below, New site and Library folder at the foot) and the open site. The site area has a sticky translucent head with the site name, its address and publish folder, search, New theme and the green New tutorial. Themes follow as sections, each a hairline-ruled header with its label dot, then a grid of tutorial thumbnails (16:10, at least 216px wide) ending with a dashed "New tutorial in" tile.
 
+**Settings.** The same two columns as the library. The left panel keeps the logo head, then a Library row to go back, the Settings caption and one 32px row per section (Updates, MCP, Library, Shortcuts), the current one in Selection Wash with a green icon, and the version at the foot. The section is a 760px column 32px from the edges: a 26px title with a 14px soft introduction, then groups, each under an 11px uppercase caption on a hairline, made of rows set off by hairlines. Settings is a screen, not a dialog, and the library reaches it from a Settings row at the very bottom of its left panel, under a hairline of its own.
+
 **Spacing.** A 4px base scale (4, 8, 12, 16, 24, 32, 48). Panels pad 8px inside lists and 16px in the properties panel; the library content sits 32px from its edges. Gaps between toolbar items are 6px.
 
 ## Elevation & Depth
@@ -296,6 +298,14 @@ Buttons share one shape; the color says what the action is.
 
 - **Segmented:** a sunken track with 2px padding; options are 24px with 4px corners; the chosen one takes the high depth. Used for the Site and Step views of the viewer, and for Fade or Cut.
 
+### Settings controls
+
+- **Switch:** a 34 by 20px sunken pill with a 14px knob in soft text; on, it fills Action Green and the knob turns white and slides right. It sits at the right end of its row, and the whole row toggles it.
+- **Status pill:** a 20px high-depth pill with a 7px dot and 12px soft text: green for a connected agent, amber for one that needs another click, faint otherwise.
+- **Code block:** commands and configuration to copy, in Cascadia Mono 12px on the stage color, with a strong hairline and 6px corners, beside a small Copy button. The only place where text is selectable outside fields.
+- **New version:** the release waiting to be installed sits sunken on the stage color, 10px corners, with its notes and the one green button of the screen, Download and install.
+- **Agent badge:** while an AI agent works, a 22px pill in Selection Wash with Selection Green text and a pulsing spark names it, in the toolbar of the editor before the save state, and at the bottom of the library panel. Tutorials an agent made carry its name with the spark in their facts.
+
 ### Menus and dialogs
 
 - **Menus:** raised, 10px corners, 4px padding, Lift shadow, opened with the popover API under their button. Items are 30px rows; the item under the pointer fills Action Green. Destructive items use light red text and fill danger red on hover.
@@ -304,7 +314,7 @@ Buttons share one shape; the color says what the action is.
 
 ### Navigation
 
-- **Library sites panel:** 32px site rows with a 20px monogram; the current site takes Selection Wash and an Action Green monogram. Themes nest under it as 28px rows with their label dot and count.
+- **Library sites panel:** 32px site rows with a 20px monogram; the current site takes Selection Wash and an Action Green monogram. Themes nest under it as 28px rows with their label dot and count. New site and Library folder sit at its foot, and Settings below them, at the bottom left of the window, with a green dot when a new version waits.
 - **Editor toolbar breadcrumb:** soft text with chevrons, the theme dot before its name, the tutorial title in full text at 600.
 - **Steps panel:** a 40px head with the panel name as a caption and its count, then one row per step: its number, a 72 by 45 thumbnail, the title, and its time and markers. The current step takes Selection Wash and a Selection Green number. Alt+Up and Alt+Down move a step.
 

@@ -23,7 +23,7 @@ The browser lives inside the editor. Recording happens in the studio itself: eve
 - The library is a folder on disk: `Documents/Interactive Learning`, then one folder per site, one per theme inside it, and one per tutorial inside a theme. Each tutorial folder holds `guide.json` and its images, so it can be backed up, shared and versioned like any file.
 - A site can be linked to the folder of its web project, for example `public/guides`, so that publishing writes the tutorial where the web application serves it. Export ZIP stays available for the extension, the web studio or a developer.
 - A site holds several tutorials, grouped by theme or category.
-- An AI agent can prepare a tutorial with the skill; the creator then refines it in a studio.
+- An AI agent can make a tutorial in the studio itself through its MCP server, while the creator watches and can take over; the tutorial then waits in the library like any other. Without the studio, the agent prepares one with the skill and the command line, and the creator refines it in a studio.
 - A desktop window on Windows, used with a mouse and a keyboard during long working sessions.
 
 ## Capabilities and Constraints
@@ -31,6 +31,7 @@ The browser lives inside the editor. Recording happens in the studio itself: eve
 - Automatic recording: a click becomes a step with the screen before the click, the cursor and a named marker. Full-page screenshots keep the part shown on screen. A manual capture adds the page as it is.
 - Step editing: markers (add, move, delete, their texts), title, duration, transition between screens (fade or cut), the part of the page shown on screen, page address, retake of the screenshot.
 - Preview in the player, publish to the linked project folder, export ZIP.
+- Settings: updates installed from the releases on GitHub, the connection of AI agents (MCP) with the journal of what they did, the library folder, and the shortcuts.
 - The guide format (schema 1.0.0, `packages/protocol`) is shared with every other package; new fields stay optional so older players keep working.
 - Screenshots come straight from the engine of the site view, WebView2 on Windows and WebKitGTK on Linux, so recording needs no browser permission.
 - Interface copy is in English, like the other surfaces of the project.

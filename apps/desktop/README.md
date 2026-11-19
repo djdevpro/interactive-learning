@@ -6,6 +6,8 @@ The desktop app of Interactive Learning for tutorial creators, on Windows and Li
 
 The [releases of the repository](https://github.com/djdevpro/interactive-learning/releases) hold the Windows installer and the Linux packages. The Windows installer is not signed yet, so Windows may say its publisher is unknown. Choose More info, then Run anyway. On Linux, make the AppImage executable and open it, or install the `.deb` or `.rpm` package.
 
+Once installed, the studio updates itself from **Settings › Updates**, at the bottom left of the library.
+
 ## Run it
 
 It needs Rust and, on Windows, the Microsoft C++ build tools and WebView2, which Windows 10 and 11 already include. Linux needs WebKitGTK 2.40 or later and the other libraries listed in the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/). Run these commands from the repository root.
@@ -17,9 +19,34 @@ pnpm dev:desktop
 
 `pnpm --filter @interactive-learning/desktop build` produces the installers in `src-tauri/target/release/bundle`.
 
+## Settings
+
+**Settings**, at the bottom left of the library and in the More menu of the editor, has four tabs.
+
+- **Updates** shows the installed version and looks for a newer one among the releases of the repository, at each start unless you turn it off. **Download and install** fetches the installer of your system, checks its SHA-256 against the one GitHub publishes, and installs it: on Windows the installer runs on its own, closes the studio and opens it again on the new version; an AppImage replaces itself; a `.deb` or `.rpm` opens in the software installer of the system. A copy built from the source code never replaces itself.
+- **MCP** connects AI agents, as described below, and lists what they did.
+- **Library** shows the library folder and moves the studio to another one.
+- **Shortcuts** lists the keys of the editor.
+
+The settings, the address agents reach the studio at and the journal of agents live in `~/.interactive-learning`, apart from the library. `IL_STUDIO_HOME` moves that folder.
+
+## AI agents
+
+The program is also an MCP server: `interactive-learning-desktop --mcp` speaks the Model Context Protocol on its standard input and output, without a window. **Settings › MCP** declares it in Claude Code and Codex for every project in one click, gives the configuration for Claude Desktop, Cursor and other clients, and installs the skill that teaches agents to make tutorials. By hand, for Claude Code:
+
+```sh
+claude mcp add --scope user interactive-learning -- "<folder of the studio>/interactive-learning-desktop.exe" --mcp
+```
+
+An agent then drives the studio the way you do, in its window, where you watch and can take over at any moment. It lists the library and creates sites, themes and tutorials; opens pages in the browser of the studio, reads them as a screenshot and a list of elements, clicks, types demo data and presses keys; records, so each of its clicks becomes a step with its marker; captures screens; edits titles, texts, markers, durations and transitions; shows a step to check it; plays, publishes and exports. Every change goes through the editor, so it is saved and can be undone like yours. The tutorials it makes carry its name in the library, and **Settings › MCP** keeps the journal of what each agent did, with a link back to each tutorial.
+
+- The MCP server starts the studio when it is closed, and talks to it through a local address on 127.0.0.1 with a token, written in `~/.interactive-learning/studio.json`. The address refuses browsers, so no website reaches it, and **Let AI agents drive the studio** turns it off.
+- The tools are listed in `src/agent/tools.json`, which the server reads to describe them and the interface carries out in `src/agent/tools.ts`. The page script of the agent is `src-tauri/src/page.js`. It never reads the values of fields.
+- The server also gives two prompts, `record_tutorial` and `polish_tutorial`, which Claude Code lists as `/mcp__interactive-learning__record_tutorial`.
+
 ## Release
 
-`pnpm release:desktop` runs the Release desktop studio workflow on GitHub. It builds the Windows installer and the Linux packages, then publishes them together as the `desktop-v<version>` release. Raise `version` in `src-tauri/tauri.conf.json` before each release, since the workflow never replaces a published version.
+`pnpm release:desktop` runs the Release desktop studio workflow on GitHub for a patch version, `pnpm release:desktop:minor` and `pnpm release:desktop:major` for the others. The workflow takes the last `desktop-v<version>` tag, raises it, and builds the studio with that version: it never reuses a published one. A higher version written in `src-tauri/tauri.conf.json` wins, to choose one by hand. Its notes are the commits of the studio since the last version, unless you type your own in Actions. It runs the tests, builds the Windows installer and the Linux packages, checks that the program answers as an MCP server, adds `SHA256SUMS.txt`, and publishes them together as the `desktop-v<version>` release, the one installed studios find in **Settings › Updates**.
 
 ## The library
 
@@ -53,4 +80,4 @@ On the keyboard, Space plays or pauses, ← and → change the step, Delete remo
 
 ## Self-test
 
-`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size and goes back to the library. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials. On Linux without a screen, start the command with `xvfb-run -a`.
+`IL_DESKTOP_SELFTEST=<folder> pnpm exec tauri dev --no-watch` creates a site, two themes and a tutorial in a library of its own in that folder, records a test page served with the studio (or `IL_DESKTOP_SELFTEST_URL`) with real scrolls and clicks, edits a step, publishes, exports the ZIP, plays chosen moments of the tutorial, opens the editor at the smallest window size, goes back to the library and opens three tabs of Settings. It saves a PNG of each screen and a `report.txt` in that folder, then quits. Its profile lives there too, away from your tutorials. On Linux without a screen, start the command with `xvfb-run -a`.

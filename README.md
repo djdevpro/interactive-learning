@@ -11,6 +11,8 @@ Interactive Learning Studio is the desktop app for people who make tutorials wit
 - **Record** opens the site in the built-in browser, and each click becomes a step with its screenshot, the cursor and a numbered marker.
 - On the timeline you order the steps and set how long each one plays, and on the canvas you place the markers.
 - **Play** shows the tutorial in the player, **Publish** copies it into the web project of the site, and **Export** writes a ZIP.
+- **AI agents** such as Claude Code and Codex drive the studio through its MCP server: they record the flow in its browser while you watch, write the texts and publish. Their tutorials stay in your library. **Settings › MCP** connects them in one click.
+- **Settings › Updates** installs each new version from the releases.
 
 Download it from the [releases](https://github.com/djdevpro/interactive-learning/releases). [Desktop app README](apps/desktop/README.md)
 
@@ -18,7 +20,7 @@ Download it from the [releases](https://github.com/djdevpro/interactive-learning
 
 **With the browser extension.** Click its icon to open the side panel, name the guide and walk through your flow. Every click, page and filled form becomes a step with its screenshot, and **Capture step** keeps a form before you submit it. Open any step to place as many numbered markers as you need. The export is a ZIP with `guide.json` and its screenshots, and **Import** opens such a ZIP again, including one written by an AI agent. Load the extension in Chrome from `chrome://extensions` with **Load unpacked**, using the folder that `npx -y @interactive-learning/recorder extension path` prints. [Limits and permissions](apps/extension/README.md)
 
-**With an AI agent.** Install the skill once, then ask the agent to document a flow of your site. It drives its browser and writes the guide into the public folder of the project.
+**With an AI agent.** Install the skill once, then ask the agent to document a flow of your site. When Interactive Learning Studio is connected, the agent records the tutorial in the studio and keeps it in your library. Otherwise it drives its own browser and writes the guide into the public folder of the project.
 
 ```sh
 npx -y @interactive-learning/recorder skill install --agent claude
@@ -71,7 +73,7 @@ pnpm build
 pnpm dev:player
 ```
 
-`pnpm dev:player` opens a live preview of the player on port 4316. `pnpm dev:all` starts the Vue, React, Svelte and HTML examples on ports 4317 to 4320, `pnpm dev:wireframe` a prototype to record on port 4321, `pnpm dev:studio` the web studio on a copy of the example guide, and `pnpm dev:desktop` Interactive Learning Studio, which needs Rust. `pnpm check` runs the types, tests and builds. `pnpm release:desktop` builds Interactive Learning Studio for Windows and Linux on GitHub and publishes the installers as a release, once its version in `apps/desktop/src-tauri/tauri.conf.json` is new.
+`pnpm dev:player` opens a live preview of the player on port 4316. `pnpm dev:all` starts the Vue, React, Svelte and HTML examples on ports 4317 to 4320, `pnpm dev:wireframe` a prototype to record on port 4321, `pnpm dev:studio` the web studio on a copy of the example guide, and `pnpm dev:desktop` Interactive Learning Studio, which needs Rust. `pnpm check` runs the types, tests and builds. `pnpm release:desktop` builds Interactive Learning Studio for Windows and Linux on GitHub and publishes the installers as a new patch release, numbered from the last one; `pnpm release:desktop:minor` and `pnpm release:desktop:major` raise the other numbers. Installed studios find it in Settings › Updates.
 
 | Folder              | Content                                                      |
 | ------------------- | ------------------------------------------------------------ |
