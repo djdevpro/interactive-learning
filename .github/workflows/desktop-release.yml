@@ -113,8 +113,10 @@ jobs:
               -F body=@notes.md -F draft=true --jq .id)
           elif [ "${existing#* }" = "true" ]; then
             id=${existing%% *}
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F body=@notes.md \
-              -f target_commitish="$GITHUB_SHA" --silent
+            # Every change of a draft names its tag again: GitHub creates the tag only when the
+            # release is published, and a change without it detaches the draft from its tag.
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -f tag_name="$tag" \
+              -F body=@notes.md -f target_commitish="$GITHUB_SHA" --silent
           else
             echo "::error::$tag is already released. Run the workflow again with another bump."
             exit 1
@@ -236,5 +238,12 @@ jobs:
           ID: ${{ needs.version.outputs.release-id }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=true --silent
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -f tag_name="desktop-v$VERSION" \
+            -F draft=false -f make_latest=true --silent
+          # Installed studios find a version by its tag: a release without it reaches nobody.
+          tag=$(gh api "repos/$GITHUB_REPOSITORY/releases/$ID" --jq .tag_name)
+          if [ "$tag" != "desktop-v$VERSION" ]; then
+            echo "::error::The release was published as $tag instead of desktop-v$VERSION."
+            exit 1
+          fi
           echo "Interactive Learning Studio $VERSION is out."
