@@ -825,6 +825,9 @@ mod tests {
         let root = Path::new("library");
         assert!(inside(root, "Site/Theme/tutorial").is_ok());
         assert!(inside(root, "../secrets").is_err());
+        assert!(inside(root, "/etc").is_err());
+        // A drive letter starts an absolute path on Windows only; elsewhere `C:` names a folder.
+        #[cfg(windows)]
         assert!(inside(root, "C:/Windows").is_err());
     }
 
