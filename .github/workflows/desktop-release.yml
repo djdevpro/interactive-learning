@@ -1,9 +1,23 @@
 name: Release desktop studio
 
-# Builds Interactive Learning Studio for Windows and Linux and publishes the installers as a GitHub
-# release. It runs only by hand, with `pnpm release:desktop`, never on a push.
+# A new version of Interactive Learning Studio, when you decide: `pnpm release:desktop` (patch),
+# `pnpm release:desktop:minor`, `pnpm release:desktop:major`, or Actions > Release desktop studio.
+# The version comes from the last desktop-v tag, raised by the bump. A higher version written in
+# apps/desktop/src-tauri/tauri.conf.json wins, for a version chosen by hand. The notes come from
+# the commits of the studio since the last version, unless you type your own. Installed studios
+# find the new version in Settings > Updates and install it.
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: Next version
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      notes:
+        description: Release notes separated by semicolons (empty to use the commit messages)
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -13,49 +27,103 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  draft:
+  version:
     if: github.ref_name == github.event.repository.default_branch
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
     outputs:
+      version: ${{ steps.version.outputs.version }}
       release-id: ${{ steps.draft.outputs.id }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          last=$(git tag --list 'desktop-v*' --sort=-v:refname | head -n 1)
+          written=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
+          if [ -z "$last" ]; then
+            next=$written
+          else
+            IFS=. read -r major minor patch <<< "${last#desktop-v}"
+            patch=${patch%%-*}
+            case "$BUMP" in
+              major) next="$((major + 1)).0.0" ;;
+              minor) next="$major.$((minor + 1)).0" ;;
+              *) next="$major.$minor.$((patch + 1))" ;;
+            esac
+            highest=$(printf '%s\n%s\n' "$next" "$written" | sort -V | tail -n 1)
+            if [ "$highest" = "$written" ]; then next=$written; fi
+          fi
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "Version $next (last ${last:-none})"
+
+      - name: Notes
+        env:
+          NOTES: ${{ inputs.notes }}
+          LAST: ${{ steps.version.outputs.last }}
+        run: |
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" | tr ';' '\n' | sed 's/^ *//; s/ *$//' | grep -v '^$' | sed 's/^/- /' > points.md
+          else
+            if [ -n "$LAST" ]; then range="$LAST..HEAD"; else range="HEAD~20..HEAD"; fi
+            # The commits of the studio and of what it ships, without the chores, as sentences.
+            git log "$range" --no-merges --pretty='%s' -- apps/desktop packages/player packages/editor packages/protocol skills \
+              | grep -viE '^(chore|ci|build|test|style|refactor)(\(|:|!)' \
+              | sed -E 's/^[a-z]+(\([^)]*\))?!?: *//' \
+              | awk 'NF { print "- " toupper(substr($0, 1, 1)) substr($0, 2) }' > points.md || true
+          fi
+          [ -s points.md ] || echo '- Fixes and improvements' > points.md
+          {
+            echo "## What's new"
+            echo
+            cat points.md
+            echo
+            echo '## Install'
+            echo
+            echo 'Installed studios update themselves from Settings > Updates.'
+            echo
+            echo 'On Windows, run the `setup.exe` installer. Windows may say the publisher is unknown, because the installer is not signed yet. Choose More info, then Run anyway.'
+            echo
+            echo 'On Linux, make the `.AppImage` executable and open it, or install the `.deb` or `.rpm` package.'
+          } > notes.md
+          cat notes.md
+
       # A draft left by a failed run is reused; a published version is never overwritten.
       - name: Draft the release of this version
         id: draft
         env:
           GH_TOKEN: ${{ github.token }}
-          BODY: |
-            Interactive Learning Studio records, edits and publishes tutorials.
-
-            On Windows, run the `setup.exe` installer. Windows may say the publisher is unknown, because the installer is not signed yet. Choose More info, then Run anyway.
-
-            On Linux, make the `.AppImage` executable and open it, or install the `.deb` or `.rpm` package.
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          version=$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)
-          tag="desktop-v$version"
+          tag="desktop-v$VERSION"
           existing=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate \
             --jq ".[] | select(.tag_name == \"$tag\") | \"\(.id) \(.draft)\"" | head -n 1)
           if [ -z "$existing" ]; then
             id=$(gh api "repos/$GITHUB_REPOSITORY/releases" -f tag_name="$tag" \
-              -f target_commitish="$GITHUB_SHA" -f name="Interactive Learning Studio $version" \
-              -f body="$BODY" -F draft=true --jq .id)
+              -f target_commitish="$GITHUB_SHA" -f name="Interactive Learning Studio $VERSION" \
+              -F body=@notes.md -F draft=true --jq .id)
           elif [ "${existing#* }" = "true" ]; then
             id=${existing%% *}
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F body=@notes.md \
+              -f target_commitish="$GITHUB_SHA" --silent
           else
-            echo "::error::$tag is already released. Raise the version in apps/desktop/src-tauri/tauri.conf.json."
+            echo "::error::$tag is already released. Run the workflow again with another bump."
             exit 1
           fi
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
     name: ${{ matrix.system }}
-    needs: draft
+    needs: version
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -67,10 +135,12 @@ jobs:
           - system: Windows
             runner: windows-latest
             bundles: nsis
+            binary: interactive-learning-desktop.exe
           # The oldest supported Ubuntu keeps the packages compatible with older distributions.
           - system: Linux
             runner: ubuntu-22.04
             bundles: deb,rpm,appimage
+            binary: interactive-learning-desktop
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -92,6 +162,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The studio plays tutorials with the built player.
       - run: pnpm --filter @interactive-learning/player build
+      - name: Set the version
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          config=apps/desktop/src-tauri/tauri.conf.json
+          jq --arg version "$VERSION" '.version = $version' "$config" > tauri.conf.json.next
+          mv tauri.conf.json.next "$config"
+          jq -r .version "$config"
+      # The tests of the studio, before anything is built.
+      - name: Tests
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --release
       - uses: tauri-apps/tauri-action@v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -99,18 +182,59 @@ jobs:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
           args: --bundles ${{ matrix.bundles }}
-          releaseId: ${{ needs.draft.outputs.release-id }}
+          releaseId: ${{ needs.version.outputs.release-id }}
           releaseAssetNamePattern: interactive-learning-studio-[version]-[platform]-[arch][setup][ext]
+      # The program answers as an MCP server, with its version and its tools.
+      - name: Smoke test the MCP server
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          IL_STUDIO_HOME: ${{ runner.temp }}/studio-home
+        run: |
+          set -o pipefail
+          bin="apps/desktop/src-tauri/target/release/${{ matrix.binary }}"
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"ci"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
+            | "$bin" --mcp | tee mcp.txt
+          grep -q '"name":"interactive-learning-studio"' mcp.txt
+          grep -q "\"version\":\"$VERSION\"" mcp.txt
+          grep -q '"name":"create_tutorial"' mcp.txt
 
   publish:
-    needs: [draft, build]
+    needs: [version, build]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      # The SHA-256 of every file, which the studio checks before it installs an update. GitHub
+      # gives one with each file too; this list is the fallback.
+      - name: Add the checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ needs.version.outputs.release-id }}
+        run: |
+          mkdir dist
+          gh api "repos/$GITHUB_REPOSITORY/releases/$ID/assets" --paginate --jq '.[] | "\(.id) \(.name)"' > assets.txt
+          while read -r asset name; do
+            if [ "$name" = "SHA256SUMS.txt" ]; then
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset"
+            else
+              gh api -H 'Accept: application/octet-stream' "repos/$GITHUB_REPOSITORY/releases/assets/$asset" > "dist/$name"
+            fi
+          done < assets.txt
+          (cd dist && sha256sum -- * > ../SHA256SUMS.txt)
+          cat SHA256SUMS.txt
+          curl --fail --silent --show-error -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: text/plain' \
+            --data-binary @SHA256SUMS.txt \
+            "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$ID/assets?name=SHA256SUMS.txt" > /dev/null
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-          ID: ${{ needs.draft.outputs.release-id }}
-        run: gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false --silent
+          ID: ${{ needs.version.outputs.release-id }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$ID" -F draft=false -f make_latest=true --silent
+          echo "Interactive Learning Studio $VERSION is out."

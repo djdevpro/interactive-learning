@@ -33,7 +33,9 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "deploy": "gh workflow run release.yml --ref main -f create_version_pr=true",
-    "release:desktop": "gh workflow run desktop-release.yml --ref main",
+    "release:desktop": "gh workflow run desktop-release.yml --ref main -f bump=patch",
+    "release:desktop:minor": "gh workflow run desktop-release.yml --ref main -f bump=minor",
+    "release:desktop:major": "gh workflow run desktop-release.yml --ref main -f bump=major",
     "release": "pnpm typecheck && pnpm build && changeset publish",
     "release:pack": "node scripts/release-pack.mjs",
     "pack:check": "node scripts/verify-packages.mjs"
