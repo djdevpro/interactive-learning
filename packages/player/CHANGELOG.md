@@ -1,5 +1,16 @@
 # @interactive-learning/player
 
+## 0.3.0
+
+### Minor Changes
+
+- b3e733d: Hosts that drive the player with their own controls, such as an editor with a timeline, get three things: `hide-controls` removes the control bar, and two read-only properties follow the playback: `currentTime`, the time since the start of the guide in milliseconds, and `paused`, false while the guide plays.
+- b3e733d: A step can show part of a tall screenshot with its new `viewport` field. The player scrolls between the parts of one screenshot, fades between screenshots, or swaps them at once when a step sets `transition: 'cut'`, and two screenshots of the same page fade in place before the scroll. The cursor waits where it last clicked while the page moves, then glides to its target, and the markers appear once it arrives. The next screenshot loads in advance.
+
+### Patch Changes
+
+- fcdcf63: The player loads the screenshots ahead of the timeline: the one on screen first, then the next ones two at a time, with the next one decoded in advance, so a step changes without stopping on a loading screen. Loaded screenshots stay in memory, so a replay, a step back or a guide replaced after an edit shows them at once instead of downloading them again, whatever the cache headers of the server. Before the viewer presses Play, only the next screenshot loads. The bundled studio and extension play guides this way too.
+
 ## 0.2.0
 
 ### Minor Changes
