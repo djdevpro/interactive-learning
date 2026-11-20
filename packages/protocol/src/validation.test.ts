@@ -111,6 +111,26 @@ describe('full-page screenshots and transitions', () => {
     const step = validateGuide(fixture()).steps[0]!;
     expect(step.viewport).toBeUndefined();
     expect(step.transition).toBeUndefined();
+    expect(step.zoom).toBeUndefined();
+  });
+});
+
+describe('the zoom of a step', () => {
+  it('keeps how close the camera goes', () => {
+    const guide = fixture();
+    guide.steps[0]!.zoom = 1.8;
+    expect(validateGuide(JSON.parse(JSON.stringify(guide))).steps[0]!.zoom).toBe(1.8);
+  });
+
+  it('refuses a zoom that shrinks the screen or goes past four times', () => {
+    for (const zoom of [0.5, 4.5, Number.NaN]) {
+      const guide = fixture();
+      guide.steps[0]!.zoom = zoom;
+      expect(() => validateGuide(guide)).toThrow(/zoom/);
+    }
+    const text = fixture() as unknown as { steps: { zoom: string }[] };
+    text.steps[0]!.zoom = '2';
+    expect(() => validateGuide(text)).toThrow(/zoom/);
   });
 });
 
@@ -138,5 +158,63 @@ describe('the story of a guide', () => {
 
   it('leaves a guide without a story as it was', () => {
     expect(validateGuide(fixture()).story).toBeUndefined();
+  });
+
+  it('keeps the voice of a line, next to the guide or embedded', () => {
+    const guide = fixture();
+    guide.story = [
+      { atMs: 0, text: 'Le groupe a trois filiales.', audio: 'voix/4f2a.mp3' },
+      { atMs: 2500, text: 'Chacune a son plan comptable.', audio: 'data:audio/mpeg;base64,SUQz' },
+      { atMs: 5000, text: 'Sans voix.' },
+    ];
+    expect(validateGuide(JSON.parse(JSON.stringify(guide))).story).toEqual(guide.story);
+  });
+
+  it('refuses a voice outside the folder of the guide, or an embedded file that is no sound', () => {
+    for (const audio of [
+      '../voix/a.mp3',
+      '/voix/a.mp3',
+      'https://cdn.test/a.mp3',
+      'data:image/png;base64,AAAA',
+    ]) {
+      const guide = fixture();
+      guide.story = [{ atMs: 0, text: 'Une phrase.', audio }];
+      expect(() => validateGuide(guide)).toThrow(/sound/);
+    }
+  });
+
+  it('keeps the words of a voice with the moment each is said', () => {
+    const guide = fixture();
+    guide.story = [
+      {
+        atMs: 0,
+        text: 'Deuxième étape : les postes.',
+        audio: 'voix/a.mp3',
+        words: [
+          { text: 'Deuxième', atMs: 80, endMs: 520 },
+          { text: 'étape :', atMs: 540, endMs: 980 },
+          { text: 'les', atMs: 1200, endMs: 1320 },
+          { text: 'postes.', atMs: 1340, endMs: 1800 },
+        ],
+      },
+    ];
+    expect(validateGuide(JSON.parse(JSON.stringify(guide))).story).toEqual(guide.story);
+  });
+
+  it('refuses words out of order, a word that ends before it starts, or an empty word', () => {
+    const cases = [
+      [
+        { text: 'un', atMs: 500, endMs: 600 },
+        { text: 'deux', atMs: 100, endMs: 300 },
+      ],
+      [{ text: 'un', atMs: 500, endMs: 400 }],
+      [{ text: ' ', atMs: 0, endMs: 100 }],
+    ];
+    const messages = [/order they are said/, /ends after it starts/, /says something/];
+    for (const [index, words] of cases.entries()) {
+      const guide = fixture();
+      guide.story = [{ atMs: 0, text: 'Une phrase.', words }];
+      expect(() => validateGuide(guide)).toThrow(messages[index]!);
+    }
   });
 });

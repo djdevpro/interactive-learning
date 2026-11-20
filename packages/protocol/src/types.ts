@@ -49,6 +49,12 @@ export interface GuideStep {
   /** Cursor and annotation positions stay relative to the whole image, not to this part. */
   viewport?: GuideViewport;
   transition?: GuideTransition;
+  /**
+   * Closes in on the point of the cursor as it gets there, holds through the click, then goes back
+   * before the markers appear: 1.8 shows that area 1.8 times larger. A step without a cursor, or
+   * too short for the way in and out, stays as it is.
+   */
+  zoom?: number;
   cursor?: GuideCursor;
   annotations: GuideAnnotation[];
   source?: CaptureContext;
@@ -60,6 +66,22 @@ export interface GuideStep {
 export interface GuideStoryLine {
   atMs: number;
   text: string;
+  /**
+   * The line read aloud, like the voice over of a video: a sound file next to the guide, as the
+   * screenshots are, or an embedded one. It plays from the start of the line.
+   */
+  audio?: string;
+  /**
+   * The words of the voice, in the order it says them: the player shows a few at a time over the
+   * screen, as the captions of a video, each lit when it is said.
+   */
+  words?: GuideWord[];
+}
+/** A word of a line read aloud, said from `atMs` to `endMs` after the start of the line. */
+export interface GuideWord {
+  text: string;
+  atMs: number;
+  endMs: number;
 }
 export interface GuideDocument {
   schemaVersion: typeof SCHEMA_VERSION;

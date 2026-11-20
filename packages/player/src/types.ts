@@ -5,6 +5,9 @@ import type { GuideTheme } from './theme';
 
 export type { GuideDocument, GuideStep } from '@interactive-learning/protocol';
 
+/** What the video sits in: nothing, or a browser window of macOS. */
+export type GuideFrame = 'none' | 'browser';
+
 export interface PlayerControls {
   play(): void;
   pause(): void;
@@ -24,6 +27,13 @@ export interface PlayerProperties {
   showInformation: boolean;
   /** Shows the address of the page of each step above the screenshot. The info button toggles it. */
   showAddress: boolean;
+  /**
+   * `browser` shows the video in a browser window of macOS, with the address of the page in its
+   * title bar. `none` (default) shows the screenshot alone.
+   */
+  frame: GuideFrame;
+  /** Starts with the voice of the story off. The speaker button switches it. */
+  muted: boolean;
   /** `light`, `dark` or `system` (default). The bulb button switches between light and dark. */
   theme: GuideTheme;
   /** Replaces any built-in text. The language follows the `lang` attribute, then English. */

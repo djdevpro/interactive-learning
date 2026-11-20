@@ -13,7 +13,7 @@ export interface MotionInput {
 }
 
 export interface StepMotion {
-  /** Part of the current screenshot on screen now. */
+  /** Part of the current screenshot on screen now, smaller while the camera zooms in. */
   view: GuideViewport;
   opacity: number;
   /**
@@ -23,9 +23,9 @@ export interface StepMotion {
   previous: { assetId: string; view: GuideViewport } | null;
   /** Cursor on screen, from 0 to 1 of the stage, and its click ripple from 0 to 1. */
   cursor: (Point & { ripple: number | null }) | null;
-  /** Where the cursor stops, from 0 to 1 of the stage. */
+  /** Where the cursor stops, from 0 to 1 of the stage once the camera is back. */
   target: Point | null;
-  /** Markers appear once the screen is in place and the cursor has arrived. */
+  /** Markers appear once the screen is in place, the cursor has arrived and the camera is back. */
   markersVisible: boolean;
 }
 
@@ -37,6 +37,93 @@ export function viewOf(step: GuideStep): GuideViewport {
 export function toStage(point: Point, view: GuideViewport): Point {
   return { x: (point.x - view.x) / view.width, y: (point.y - view.y) / view.height };
 }
+
+/** A point of the stage that shows `view`, placed on the whole screenshot. */
+function toImage(point: Point, view: GuideViewport): Point {
+  return { x: view.x + point.x * view.width, y: view.y + point.y * view.height };
+}
+
+/**
+ * The part of `view` that a camera `zoom` times closer to `focus` shows. It centers the point as
+ * far as the view allows, so a point near an edge stays near it.
+ */
+export function closeUp(view: GuideViewport, focus: Point, zoom: number): GuideViewport {
+  const width = view.width / zoom;
+  const height = view.height / zoom;
+  const within = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  return {
+    x: within(focus.x - width / 2, view.x, view.x + view.width - width),
+    y: within(focus.y - height / 2, view.y, view.y + view.height - height),
+    width,
+    height,
+  };
+}
+
+/**
+ * Where the action sits well on screen, from 0 to 1 of the stage: off the edges, and above the
+ * band of the captions and the controls.
+ */
+const COMFORT = { left: 0.08, right: 0.92, top: 0.08, bottom: 0.7 };
+/** How close the camera may go to frame the action, and what each step closer costs. */
+const FRAME_ZOOMS = [1.15, 1.3, 1.45];
+const FRAME_COST = 0.06;
+
+/**
+ * The part of the screenshot the camera frames for a step: the view of the step, or a closer part
+ * of it when the cursor or a marker sits near an edge, under the captions or the controls. The
+ * camera then brings the action toward the middle as far as the screenshot allows, a little
+ * closer for each step of the way it gains, and never shows past the screenshot.
+ */
+export function frameOf(step: GuideStep): GuideViewport {
+  const view = viewOf(step);
+  const points: Point[] = [...(step.cursor ? [step.cursor] : []), ...step.annotations];
+  if (!points.length) return view;
+  // How far the action lies outside its place, or Infinity when the frame would hide part of it.
+  const strain = (frame: GuideViewport) =>
+    points.reduce((sum, point) => {
+      const { x, y } = toStage(point, frame);
+      if (x < 0 || x > 1 || y < 0 || y > 1) return Infinity;
+      return (
+        sum +
+        Math.max(0, COMFORT.left - x, x - COMFORT.right) +
+        Math.max(0, COMFORT.top - y, y - COMFORT.bottom)
+      );
+    }, 0);
+  let best = view;
+  let least = strain(view);
+  if (least === 0) return view;
+  const xs = points.map((point) => point.x);
+  const ys = points.map((point) => point.y);
+  const focus = {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    y: (Math.min(...ys) + Math.max(...ys)) / 2,
+  };
+  const middle = { x: (COMFORT.left + COMFORT.right) / 2, y: (COMFORT.top + COMFORT.bottom) / 2 };
+  const within = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  for (const zoom of FRAME_ZOOMS) {
+    const width = view.width / zoom;
+    const height = view.height / zoom;
+    const frame = {
+      x: within(focus.x - middle.x * width, view.x, view.x + view.width - width),
+      y: within(focus.y - middle.y * height, view.y, view.y + view.height - height),
+      width,
+      height,
+    };
+    const value = strain(frame) + FRAME_COST * (zoom - 1);
+    if (value < least) {
+      best = frame;
+      least = value;
+    }
+  }
+  return best;
+}
+
+// The camera closes in while the pointer ends its way, stays through the click, then goes back.
+const ZOOM_IN_MS = 700;
+const ZOOM_HOLD_MS = 900;
+const ZOOM_OUT_MS = 650;
+/** A step zooms only when it lasts at least this long after the click. */
+const ZOOM_MIN_AFTER_MS = 900;
 
 /** Width over height of the part of the screenshot a step shows. */
 export function stageAspect(asset: GuideAsset | undefined, view: GuideViewport): number {
@@ -71,8 +158,9 @@ function lineUp(
 /**
  * Where everything is at one moment of a step. The screen comes first: a new screenshot fades in,
  * in place when it shows the same page, then the screen scrolls to the part this step shows. The
- * cursor then glides from where it last clicked, clicks, and the markers appear. Everything is
- * computed from the time in the step, so seeking or pausing shows the same frame.
+ * cursor then glides from where it last clicked, clicks, and the markers appear. A step with a
+ * zoom closes in on the point while the cursor ends its way, and goes back before the markers.
+ * Everything is computed from the time in the step, so seeking or pausing shows the same frame.
  */
 export function stepMotion({
   step,
@@ -81,9 +169,10 @@ export function stepMotion({
   elapsedMs,
   reducedMotion,
 }: MotionInput): StepMotion {
-  const view = viewOf(step);
+  // The camera frames each step, so it moves from one framing to the next as it scrolls.
+  const view = frameOf(step);
   const duration = step.durationMs;
-  const before = previous ? viewOf(previous.step) : undefined;
+  const before = previous ? frameOf(previous.step) : undefined;
   const sameImage = previous?.step.assetId === step.assetId;
   // Where the screen starts on this step's screenshot, when it can carry on from the previous one.
   const start =
@@ -118,8 +207,19 @@ export function stepMotion({
         ? toStage(previous.step.cursor, before)
         : { x: 0.5, y: 0.5 };
   const travel = target && from ? Math.hypot(target.x - from.x, target.y - from.y) : 0;
-  const moveMs =
+  const glideMs =
     reducedMotion || travel < 0.002 ? 0 : Math.min(duration * 0.3, 450 + 500 * Math.min(travel, 1));
+  // A zoom lets the pointer take at least the time the camera needs to close in.
+  const zoomMoveMs = Math.max(glideMs, Math.min(ZOOM_IN_MS, duration * 0.3));
+  const zoom =
+    !reducedMotion &&
+    cursor &&
+    step.zoom !== undefined &&
+    step.zoom > 1 &&
+    duration - screenMs - zoomMoveMs >= ZOOM_MIN_AFTER_MS
+      ? step.zoom
+      : 1;
+  const moveMs = zoom > 1 ? zoomMoveMs : glideMs;
   const arrivedAt = screenMs + moveMs;
 
   const faded = fadeMs ? ease(unit(elapsedMs / fadeMs)) : 1;
@@ -127,15 +227,46 @@ export function stepMotion({
   const moved = moveMs ? ease(unit((elapsedMs - screenMs) / moveMs)) : 1;
   const ripple = elapsedMs - arrivedAt;
 
+  // How close the camera is, from 0 for the view of the step to 1 for the zoom of the step.
+  let closeness = 0;
+  let markersAt = arrivedAt;
+  if (zoom > 1) {
+    const inMs = Math.min(ZOOM_IN_MS, moveMs);
+    const afterMs = duration - arrivedAt;
+    const outStart = arrivedAt + Math.min(ZOOM_HOLD_MS, afterMs * 0.35);
+    const outMs = Math.min(ZOOM_OUT_MS, afterMs * 0.3);
+    markersAt = outStart + outMs;
+    closeness =
+      elapsedMs < outStart
+        ? ease(unit((elapsedMs - (arrivedAt - inMs)) / inMs))
+        : 1 - ease(unit((elapsedMs - outStart) / outMs));
+  }
+
+  const screen = start
+    ? {
+        x: lerp(start.x, view.x, scrolled),
+        y: lerp(start.y, view.y, scrolled),
+        width: lerp(start.width, view.width, scrolled),
+        height: lerp(start.height, view.height, scrolled),
+      }
+    : view;
+  // A framed step is already closer: the zoom of the click adds what it lacks, and a little.
+  const framed = viewOf(step).width / view.width;
+  const close =
+    cursor && closeness > 0 ? closeUp(view, cursor, Math.max(1.15, zoom / framed)) : undefined;
+  const camera = close
+    ? {
+        x: lerp(view.x, close.x, closeness),
+        y: lerp(view.y, close.y, closeness),
+        width: lerp(view.width, close.width, closeness),
+        height: lerp(view.height, close.height, closeness),
+      }
+    : screen;
+  // The pointer moves on the page, so the camera carries it with the screenshot.
+  const pointer = (point: Point) => (close ? toStage(toImage(point, view), camera) : point);
+
   return {
-    view: start
-      ? {
-          x: lerp(start.x, view.x, scrolled),
-          y: lerp(start.y, view.y, scrolled),
-          width: lerp(start.width, view.width, scrolled),
-          height: lerp(start.height, view.height, scrolled),
-        }
-      : view,
+    view: camera,
     opacity: faded,
     previous:
       previous && before && fadeMs && faded < 1
@@ -144,8 +275,7 @@ export function stepMotion({
     cursor:
       target && from
         ? {
-            x: lerp(from.x, target.x, moved),
-            y: lerp(from.y, target.y, moved),
+            ...pointer({ x: lerp(from.x, target.x, moved), y: lerp(from.y, target.y, moved) }),
             ripple:
               cursor?.action === 'click' && !reducedMotion && ripple >= 0 && ripple <= 500
                 ? ripple / 500
@@ -153,6 +283,6 @@ export function stepMotion({
           }
         : null,
     target,
-    markersVisible: elapsedMs >= arrivedAt,
+    markersVisible: elapsedMs >= markersAt,
   };
 }
