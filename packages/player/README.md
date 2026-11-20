@@ -229,6 +229,7 @@ interactive-learning {
 | `--il-focus`          | Keyboard focus ring                     | Accent or white        |
 | `--il-radius`         | Corner radius                           | `0px`, square corners  |
 | `--il-screen-padding` | Room around the video                   | `12px`, `0` full width |
+| `--il-max-width`      | Widest the player grows, centered       | `1100px`, `none`       |
 
 The default look is plain, with square corners, a neutral accent and the page font. The video keeps 12 px of room on each side, 8 px at most in a narrow player and none in full screen; `--il-screen-padding: 0` runs it to the edges.
 
