@@ -1,6 +1,6 @@
 {
   "name": "@interactive-learning/recorder",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Browser-independent capture authoring tools for Interactive Learning guides.",
   "type": "module",
   "license": "MIT",

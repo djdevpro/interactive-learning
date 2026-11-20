@@ -1,5 +1,12 @@
 # @interactive-learning/recorder
 
+## 0.3.1
+
+### Patch Changes
+
+- bb9a1cb: A guide can tell a story under its screenshots. Its `story` lists lines, each with the moment it starts (`atMs`), on its own timing rather than the steps'. The player shows the line of the moment under the screen and fades from one line to the next. The story stops while a marker is read and goes on with playback. A line that starts after the end is never told. The recorder keeps the story when it validates a guide.
+- bdbf92d: The AI skill now makes guides that teach. The viewer starts signed in, on the home page. Each screen is opened, then visited element by element, the cursor gliding from one to the next. A story told under the video says why. Markers sit beside the words instead of hiding them, and steps last long enough to read. Every capture is 16:9, and personal data stays out of the screenshots. The skill also describes guides that the end-to-end tests of a project regenerate, without the studio or an agent.
+
 ## 0.3.0
 
 ### Minor Changes
