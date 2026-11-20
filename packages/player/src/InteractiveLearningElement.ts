@@ -23,14 +23,17 @@ import type { GuideColorScheme, GuideTheme } from './theme';
 import { TimelineController, type TimelineSnapshot } from './TimelineController';
 import {
   WHOLE_IMAGE,
+  frameOf,
   stageAspect,
   stepMotion,
   toStage,
   viewOf,
   type StepMotion,
 } from './StepMotion';
+import { captionAt } from './Captions';
+import { Narration } from './Narration';
 import { storyLineAt } from './Story';
-import type { PlayerControls, PlayerEventMap, PlayerProperties } from './types';
+import type { GuideFrame, PlayerControls, PlayerEventMap, PlayerProperties } from './types';
 
 const hostStyles = `:host { display: block; min-width: 0; }
 :host([hidden]) { display: none; }
@@ -108,6 +111,8 @@ export class InteractiveLearningElement
     assetBaseUrl: { attribute: 'asset-base-url' },
     showInformation: { type: Boolean, attribute: 'show-information', reflect: true },
     showAddress: { type: Boolean, attribute: 'show-address', reflect: true },
+    frame: { reflect: true },
+    muted: { type: Boolean, reflect: true },
     hideControls: { type: Boolean, attribute: 'hide-controls', reflect: true },
     theme: { reflect: true },
     messages: { attribute: false },
@@ -128,6 +133,10 @@ export class InteractiveLearningElement
   declare showInformation: boolean;
   /** Shows the address of the page of each step above the screenshot. The info button toggles it. */
   declare showAddress: boolean;
+  /** `browser` shows the video in a browser window of macOS, the page address in its title bar. */
+  declare frame: GuideFrame;
+  /** Starts with the voice of the story off. The speaker button switches it. */
+  declare muted: boolean;
   /** Hides the control bar, for a host that drives the player with its own controls. */
   declare hideControls: boolean;
   /** `system` follows the operating system until the viewer picks light or dark. */
@@ -146,6 +155,8 @@ export class InteractiveLearningElement
     (source) => this.#onImageSettle(source),
     () => Object.assign(new Image(), { alt: '', draggable: false }),
   );
+  /** The story read aloud, in step with playback. */
+  #narration = new Narration((src) => this.#assetSource(src));
   #animationFrame: number | undefined;
   #previousFrameTime: number | undefined;
   #idleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -164,6 +175,8 @@ export class InteractiveLearningElement
     this.assetBaseUrl = '';
     this.showInformation = false;
     this.showAddress = false;
+    this.frame = 'none';
+    this.muted = false;
     this.hideControls = false;
     this.theme = 'system';
     this.messages = undefined;
@@ -193,6 +206,8 @@ export class InteractiveLearningElement
 
   play(): void {
     if (!this.#hasSteps || this.#view.imageStatus === 'error') return;
+    // Play comes from the viewer: the voice may sound now, even if the browser refused it before.
+    this.#narration.unblock();
     this.#resumeAfterTooltip = false;
     this.#patch({ hasStarted: true, activeAnnotationId: null, playbackRequested: true });
     this.#revealControls();
@@ -277,6 +292,7 @@ export class InteractiveLearningElement
     document.removeEventListener('visibilitychange', this.#onVisibilityChange);
     document.removeEventListener('fullscreenchange', this.#onFullscreenChange);
     this.#stopAnimation();
+    this.#narration.stop();
     clearTimeout(this.#idleTimer);
     // A moved element reconnects synchronously and keeps its guide and position.
     queueMicrotask(() => {
@@ -298,6 +314,7 @@ export class InteractiveLearningElement
   protected override willUpdate(changed: PropertyValues<this>): void {
     if (changed.has('guide') || changed.has('src')) void this.#load();
     else if (changed.has('assetBaseUrl')) this.#syncImage();
+    if (changed.has('muted')) this.#narrate();
   }
 
   protected override updated(): void {
@@ -338,6 +355,8 @@ export class InteractiveLearningElement
 
   #setGuide(guide: GuideDocument | undefined): void {
     this.#stopAnimation();
+    this.#narration.reset();
+    this.#narration.prepare(guide?.story);
     let playbackError = false;
     try {
       this.#timeline = new TimelineController(guide?.steps ?? []);
@@ -397,6 +416,29 @@ export class InteractiveLearningElement
       if (step) this.#emit('step-change', { index, step });
     }
     this.#syncImage();
+    this.#narrate();
+  }
+
+  /** The voice follows the guide: the line being told, its time, the speed and the voice button. */
+  #narrate(): void {
+    const { guide, snapshot, playbackRate } = this.#view;
+    this.#narration.sync({
+      story: guide?.story,
+      elapsedMs: snapshot.elapsedMs,
+      totalMs: snapshot.totalMs,
+      playing: snapshot.playing,
+      rate: playbackRate,
+      muted: this.muted,
+    });
+  }
+
+  get #hasVoice(): boolean {
+    return this.#view.guide?.story?.some((line) => line.audio) ?? false;
+  }
+
+  #toggleVoice(): void {
+    this.#narration.unblock();
+    this.muted = !this.muted;
   }
 
   /**
@@ -504,6 +546,7 @@ export class InteractiveLearningElement
     const rate = this.#view.playbackRate;
     this.#patch({ playbackRate: rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1 });
     this.#previousFrameTime = undefined;
+    this.#narrate();
   }
 
   // Markers.
@@ -517,7 +560,8 @@ export class InteractiveLearningElement
     }
     const step = this.#currentStep;
     if (!step) return [];
-    const view = viewOf(step);
+    // Markers show once the camera rests on the framing of the step.
+    const view = frameOf(step);
     return step.annotations
       .map((annotation, index) => ({
         annotation,
@@ -600,13 +644,28 @@ export class InteractiveLearningElement
     }
   }
 
+  /**
+   * The arrow, the markers and the click ripple shrink with a narrow stage, as in a video, so they
+   * keep their place on the screenshot: full size from 880 px wide, never under 60 %.
+   */
+  get #stageScale(): number {
+    const { width } = this.#view.viewport;
+    return width ? Math.min(1, Math.max(0.6, width / 880)) : 1;
+  }
+
   // The arrow stops just below any marker it would cover, so markers stay readable and clickable.
   #cursorOffset(markers: Marker[]): number {
     const target = this.#motion?.target;
     const { width, height } = this.#view.viewport;
     if (!target || !width || !height) return 0;
-    const radius = 12;
-    const arrow = { left: target.x * width - 3, top: target.y * height, width: 22, height: 27 };
+    const scale = this.#stageScale;
+    const radius = 12 * scale;
+    const arrow = {
+      left: target.x * width - 3 * scale,
+      top: target.y * height,
+      width: 22 * scale,
+      height: 27 * scale,
+    };
     let offset = 0;
     for (const { position } of markers) {
       const x = position.x * width;
@@ -616,7 +675,7 @@ export class InteractiveLearningElement
         x - radius < arrow.left + arrow.width &&
         y + radius > arrow.top &&
         y - radius < arrow.top + arrow.height;
-      if (covers) offset = Math.max(offset, y + radius + 3 - arrow.top);
+      if (covers) offset = Math.max(offset, y + radius + 3 * scale - arrow.top);
     }
     return offset;
   }
@@ -896,209 +955,231 @@ export class InteractiveLearningElement
     const fullscreenAvailable = typeof document !== 'undefined' && document.fullscreenEnabled;
     const lastStep = (view.guide?.steps.length ?? 1) - 1;
 
+    const browser = this.frame === 'browser';
     return html`<div class="il-guide__screen">
-        ${this.#renderAddress(text)}
-        <div
-          class="il-guide__canvas"
-          style=${styleMap({
-            aspectRatio: String(shape),
-            '--il-aspect-ratio': String(shape),
-            '--il-progress': `${snapshot.progress * 100}%`,
-          })}
-          @click=${(event: Event) => {
-            if (event.target === event.currentTarget) this.#closeAnnotation();
-          }}
-        >
-          <div class="il-guide__layers">
+        ${browser ? nothing : this.#renderAddress(text)}
+        <div class=${classMap({ 'il-guide__frame': true, 'il-guide__frame--browser': browser })}>
+          ${browser ? this.#renderTitlebar(text) : nothing}
+          <div
+            class="il-guide__canvas"
+            style=${styleMap({
+              aspectRatio: String(shape),
+              '--il-aspect-ratio': String(shape),
+              '--il-progress': `${snapshot.progress * 100}%`,
+              '--il-stage-scale': String(this.#stageScale),
+              '--il-controls-height': `${view.viewport.controlsHeight}px`,
+            })}
+            @click=${(event: Event) => {
+              if (event.target === event.currentTarget) this.#closeAnnotation();
+            }}
+          >
+            <div class="il-guide__layers">
+              ${
+                previousScreenshot && motion?.previous
+                  ? html`<div
+                      class="il-guide__layer"
+                      aria-hidden="true"
+                      style=${styleMap(this.#layer(motion.previous.view, 1))}
+                    >
+                      ${previousScreenshot}
+                    </div>`
+                  : nothing
+              }
+              ${
+                screenshot
+                  ? html`<div
+                      class="il-guide__layer"
+                      role="img"
+                      aria-label=${text.imageAlt(step?.title ?? '')}
+                      style=${styleMap(
+                        this.#layer(motion?.view ?? WHOLE_IMAGE, motion?.opacity ?? 1),
+                      )}
+                      @click=${() => this.#closeAnnotation()}
+                    >
+                      ${screenshot}
+                    </div>`
+                  : nothing
+              }
+            </div>
             ${
-              previousScreenshot && motion?.previous
-                ? html`<div
-                    class="il-guide__layer"
-                    aria-hidden="true"
-                    style=${styleMap(this.#layer(motion.previous.view, 1))}
-                  >
-                    ${previousScreenshot}
+              imageStatus !== 'ready'
+                ? html`<div class="il-guide__image-fallback" role="status">
+                    ${icon('image', 36)}
+                    <span
+                      >${imageStatus === 'loading' ? text.imageLoading : text.imageUnavailable}</span
+                    >
+                    ${
+                      imageStatus === 'error' && this.#imageSource
+                        ? html`<button
+                            class="il-guide__retry"
+                            type="button"
+                            @click=${() => this.#retryImage()}
+                          >
+                            ${text.retryImage}
+                          </button>`
+                        : nothing
+                    }
+                  </div>`
+                : nothing
+            }
+            ${!showStartScreen && imageStatus === 'ready' ? this.#renderOverlay(text) : nothing}
+            ${
+              showStartScreen
+                ? html`<div class="il-guide__cover">
+                    <button
+                      class="il-guide__start"
+                      type="button"
+                      aria-label=${playLabel}
+                      data-testid="guide-start"
+                      @click=${() => this.play()}
+                    >
+                      ${icon(snapshot.ended ? 'replay' : 'play', 26)}
+                    </button>
+                    ${
+                      this.showInformation
+                        ? html`<span class="il-guide__cover-meta"
+                            >${snapshot.ended ? text.replay : text.play} ·
+                            ${formatTime(snapshot.totalMs)}</span
+                          >`
+                        : nothing
+                    }
                   </div>`
                 : nothing
             }
             ${
-              screenshot
-                ? html`<div
-                    class="il-guide__layer"
-                    role="img"
-                    aria-label=${text.imageAlt(step?.title ?? '')}
-                    style=${styleMap(
-                      this.#layer(motion?.view ?? WHOLE_IMAGE, motion?.opacity ?? 1),
-                    )}
-                    @click=${() => this.#closeAnnotation()}
-                  >
-                    ${screenshot}
+              this.hideControls
+                ? nothing
+                : html`<div class="il-guide__player">
+                    <div class="il-guide__controls">
+                      <div class="il-guide__transport">
+                        <button
+                          class="il-guide__control il-guide__control--primary"
+                          type="button"
+                          aria-label=${playLabel}
+                          title=${playLabel}
+                          ?disabled=${imageStatus === 'error'}
+                          data-testid="guide-play"
+                          @click=${() => this.#togglePlayback()}
+                        >
+                          ${icon(view.playbackRequested ? 'pause' : snapshot.ended ? 'replay' : 'play', 17)}
+                        </button>
+                        <button
+                          class="il-guide__control il-guide__control--step"
+                          type="button"
+                          aria-label=${text.previousStep}
+                          title=${text.previousStep}
+                          ?disabled=${snapshot.stepIndex <= 0}
+                          data-testid="guide-previous"
+                          @click=${() => this.goToStep(snapshot.stepIndex - 1)}
+                        >
+                          ${icon('previous', 15)}
+                        </button>
+                        <button
+                          class="il-guide__control il-guide__control--step"
+                          type="button"
+                          aria-label=${text.nextStep}
+                          title=${text.nextStep}
+                          ?disabled=${snapshot.stepIndex >= lastStep}
+                          data-testid="guide-next"
+                          @click=${() => this.goToStep(snapshot.stepIndex + 1)}
+                        >
+                          ${icon('next', 15)}
+                        </button>
+                      </div>
+                      <div class="il-guide__timeline-row">
+                        <input
+                          class="il-guide__timeline"
+                          type="range"
+                          min="0"
+                          max=${snapshot.totalMs}
+                          step=${Math.min(100, snapshot.totalMs)}
+                          .value=${live(String(snapshot.elapsedMs))}
+                          aria-label=${text.timeline}
+                          aria-valuetext=${text.timelineValue(
+                            formatTime(snapshot.elapsedMs),
+                            formatTime(snapshot.totalMs),
+                            snapshot.stepIndex + 1,
+                          )}
+                          data-testid="guide-timeline"
+                          @input=${(event: Event) =>
+                            this.seek(Number((event.target as HTMLInputElement).value))}
+                        />
+                      </div>
+                      <span class="il-guide__time"
+                        ><span>${formatTime(snapshot.elapsedMs)}</span
+                        ><span class="il-guide__time-separator">/</span
+                        >${formatTime(snapshot.totalMs)}</span
+                      >
+                      <div class="il-guide__view-controls">
+                        ${
+                          // In a browser window, the address is always in its title bar.
+                          this.#hasAddresses && this.frame !== 'browser'
+                            ? html`<button
+                                class="il-guide__control"
+                                type="button"
+                                aria-label=${text.address(this.showAddress)}
+                                title=${text.address(this.showAddress)}
+                                aria-pressed=${this.showAddress}
+                                data-testid="guide-address"
+                                @click=${() => (this.showAddress = !this.showAddress)}
+                              >
+                                ${icon('info', 17)}
+                              </button>`
+                            : nothing
+                        }
+                        ${
+                          this.#hasVoice
+                            ? html`<button
+                                class="il-guide__control"
+                                type="button"
+                                aria-label=${text.voice(!this.muted)}
+                                title=${text.voice(!this.muted)}
+                                aria-pressed=${!this.muted}
+                                data-testid="guide-voice"
+                                @click=${() => this.#toggleVoice()}
+                              >
+                                ${icon(this.muted ? 'voice-off' : 'voice', 17)}
+                              </button>`
+                            : nothing
+                        }
+                        <button
+                          class="il-guide__control"
+                          type="button"
+                          aria-label=${text.theme(colorScheme)}
+                          title=${text.theme(colorScheme)}
+                          data-testid="guide-theme"
+                          @click=${() => this.#toggleTheme()}
+                        >
+                          ${icon(`bulb-${colorScheme}`, 17)}
+                        </button>
+                        <button
+                          class="il-guide__control il-guide__speed"
+                          type="button"
+                          aria-label=${text.playbackRate(rate)}
+                          title=${text.changePlaybackRate}
+                          @click=${() => this.#cyclePlaybackRate()}
+                        >
+                          ${rate}×
+                        </button>
+                        ${
+                          fullscreenAvailable
+                            ? html`<button
+                                class="il-guide__control"
+                                type="button"
+                                aria-label=${fullscreenLabel}
+                                title=${fullscreenLabel}
+                                aria-pressed=${view.isFullscreen}
+                                @click=${() => void this.#toggleFullscreen()}
+                              >
+                                ${icon(view.isFullscreen ? 'contract' : 'expand', 16)}
+                              </button>`
+                            : nothing
+                        }
+                      </div>
+                    </div>
                   </div>`
-                : nothing
             }
           </div>
-          ${
-            imageStatus !== 'ready'
-              ? html`<div class="il-guide__image-fallback" role="status">
-                  ${icon('image', 36)}
-                  <span
-                    >${imageStatus === 'loading' ? text.imageLoading : text.imageUnavailable}</span
-                  >
-                  ${
-                    imageStatus === 'error' && this.#imageSource
-                      ? html`<button
-                          class="il-guide__retry"
-                          type="button"
-                          @click=${() => this.#retryImage()}
-                        >
-                          ${text.retryImage}
-                        </button>`
-                      : nothing
-                  }
-                </div>`
-              : nothing
-          }
-          ${!showStartScreen && imageStatus === 'ready' ? this.#renderOverlay(text) : nothing}
-          ${
-            showStartScreen
-              ? html`<div class="il-guide__cover">
-                  <button
-                    class="il-guide__start"
-                    type="button"
-                    aria-label=${playLabel}
-                    data-testid="guide-start"
-                    @click=${() => this.play()}
-                  >
-                    ${icon(snapshot.ended ? 'replay' : 'play', 26)}
-                  </button>
-                  ${
-                    this.showInformation
-                      ? html`<span class="il-guide__cover-meta"
-                          >${snapshot.ended ? text.replay : text.play} ·
-                          ${formatTime(snapshot.totalMs)}</span
-                        >`
-                      : nothing
-                  }
-                </div>`
-              : nothing
-          }
-          ${
-            this.hideControls
-              ? nothing
-              : html`<div class="il-guide__player">
-                  <div class="il-guide__controls">
-                    <div class="il-guide__transport">
-                      <button
-                        class="il-guide__control il-guide__control--primary"
-                        type="button"
-                        aria-label=${playLabel}
-                        title=${playLabel}
-                        ?disabled=${imageStatus === 'error'}
-                        data-testid="guide-play"
-                        @click=${() => this.#togglePlayback()}
-                      >
-                        ${icon(view.playbackRequested ? 'pause' : snapshot.ended ? 'replay' : 'play', 17)}
-                      </button>
-                      <button
-                        class="il-guide__control il-guide__control--step"
-                        type="button"
-                        aria-label=${text.previousStep}
-                        title=${text.previousStep}
-                        ?disabled=${snapshot.stepIndex <= 0}
-                        data-testid="guide-previous"
-                        @click=${() => this.goToStep(snapshot.stepIndex - 1)}
-                      >
-                        ${icon('previous', 15)}
-                      </button>
-                      <button
-                        class="il-guide__control il-guide__control--step"
-                        type="button"
-                        aria-label=${text.nextStep}
-                        title=${text.nextStep}
-                        ?disabled=${snapshot.stepIndex >= lastStep}
-                        data-testid="guide-next"
-                        @click=${() => this.goToStep(snapshot.stepIndex + 1)}
-                      >
-                        ${icon('next', 15)}
-                      </button>
-                    </div>
-                    <div class="il-guide__timeline-row">
-                      <input
-                        class="il-guide__timeline"
-                        type="range"
-                        min="0"
-                        max=${snapshot.totalMs}
-                        step=${Math.min(100, snapshot.totalMs)}
-                        .value=${live(String(snapshot.elapsedMs))}
-                        aria-label=${text.timeline}
-                        aria-valuetext=${text.timelineValue(
-                          formatTime(snapshot.elapsedMs),
-                          formatTime(snapshot.totalMs),
-                          snapshot.stepIndex + 1,
-                        )}
-                        data-testid="guide-timeline"
-                        @input=${(event: Event) =>
-                          this.seek(Number((event.target as HTMLInputElement).value))}
-                      />
-                    </div>
-                    <span class="il-guide__time"
-                      ><span>${formatTime(snapshot.elapsedMs)}</span
-                      ><span class="il-guide__time-separator">/</span
-                      >${formatTime(snapshot.totalMs)}</span
-                    >
-                    <div class="il-guide__view-controls">
-                      ${
-                        this.#hasAddresses
-                          ? html`<button
-                              class="il-guide__control"
-                              type="button"
-                              aria-label=${text.address(this.showAddress)}
-                              title=${text.address(this.showAddress)}
-                              aria-pressed=${this.showAddress}
-                              data-testid="guide-address"
-                              @click=${() => (this.showAddress = !this.showAddress)}
-                            >
-                              ${icon('info', 17)}
-                            </button>`
-                          : nothing
-                      }
-                      <button
-                        class="il-guide__control"
-                        type="button"
-                        aria-label=${text.theme(colorScheme)}
-                        title=${text.theme(colorScheme)}
-                        data-testid="guide-theme"
-                        @click=${() => this.#toggleTheme()}
-                      >
-                        ${icon(`bulb-${colorScheme}`, 17)}
-                      </button>
-                      <button
-                        class="il-guide__control il-guide__speed"
-                        type="button"
-                        aria-label=${text.playbackRate(rate)}
-                        title=${text.changePlaybackRate}
-                        @click=${() => this.#cyclePlaybackRate()}
-                      >
-                        ${rate}×
-                      </button>
-                      ${
-                        fullscreenAvailable
-                          ? html`<button
-                              class="il-guide__control"
-                              type="button"
-                              aria-label=${fullscreenLabel}
-                              title=${fullscreenLabel}
-                              aria-pressed=${view.isFullscreen}
-                              @click=${() => void this.#toggleFullscreen()}
-                            >
-                              ${icon(view.isFullscreen ? 'contract' : 'expand', 16)}
-                            </button>`
-                          : nothing
-                      }
-                    </div>
-                  </div>
-                </div>`
-          }
         </div>
       </div>
       ${
@@ -1220,7 +1301,38 @@ export class InteractiveLearningElement
               <span class="il-guide__tooltip-hint">${text.closeMarkerHint}</span>
             </div>`
           : nothing
-      }`;
+      }
+      ${this.#renderCaption()}`;
+  }
+
+  /**
+   * The voice over the screen, as the captions of a video: two or three words at a time, each lit
+   * when the voice says it, always at the bottom, above the controls. The camera keeps the action
+   * out of their way.
+   */
+  #renderCaption() {
+    const { guide, snapshot } = this.#view;
+    const told = storyLineAt(guide?.story, snapshot.elapsedMs, snapshot.totalMs);
+    if (!told?.line.words?.length) return nothing;
+    const caption = captionAt(told.line.words, snapshot.elapsedMs - told.line.atMs);
+    if (!caption) return nothing;
+    return html`<div class="il-guide__caption" aria-hidden="true">
+      ${keyed(
+        `${told.index}-${caption.index}`,
+        html`<p class="il-guide__caption-chunk">
+          ${caption.chunk.words.map(
+            (word, index) =>
+              html`<span
+                  class=${classMap({
+                    'il-guide__caption-word': true,
+                    'il-guide__caption-word--said': index < caption.said,
+                  })}
+                  >${word.text}</span
+                >${index < caption.chunk.words.length - 1 ? ' ' : ''}`,
+          )}
+        </p>`,
+      )}
+    </div>`;
   }
 
   /**
@@ -1232,8 +1344,10 @@ export class InteractiveLearningElement
     const { guide, snapshot } = this.#view;
     if (!guide?.story?.length) return nothing;
     const told = storyLineAt(guide.story, snapshot.elapsedMs, snapshot.totalMs);
+    // A story read aloud shows as captions over the screen: here, only screen readers get it.
+    const captioned = guide.story.every((line) => line.words?.length);
     return html`<div
-      class="il-guide__story"
+      class=${classMap({ 'il-guide__story': true, 'il-guide__sr-only': captioned })}
       role="region"
       aria-label=${text.story}
       aria-live="polite"
@@ -1269,6 +1383,42 @@ export class InteractiveLearningElement
             >`
           : html`<span>${text.noAddress}</span>`
       }
+    </div>`;
+  }
+
+  /**
+   * The title bar of a browser window of macOS: its three lights, the arrows, and the address of
+   * the page of the step in the middle, as Safari shows it. Only the address is live.
+   */
+  #renderTitlebar(text: PlayerMessages) {
+    const url = this.#currentStep?.source?.url;
+    const label = url?.replace(/^https?:\/\//, '').replace(/\/$/, '') ?? '';
+    return html`<div class="il-guide__titlebar">
+      <div class="il-guide__window-controls" aria-hidden="true">
+        <span class="il-guide__lights"><i></i><i></i><i></i></span>
+        <span class="il-guide__arrows"
+          >${icon('chevron-left', 15)}${icon('chevron-right', 15)}</span
+        >
+      </div>
+      ${
+        this.#hasAddresses
+          ? html`<div class="il-guide__urlbar" aria-live="polite">
+              ${url?.startsWith('https:') ? icon('lock', 11) : nothing}
+              ${
+                url
+                  ? html`<a
+                      href=${url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title=${text.openAddress(label)}
+                      >${label}</a
+                    >`
+                  : html`<span>${text.noAddress}</span>`
+              }
+            </div>`
+          : html`<span></span>`
+      }
+      <span aria-hidden="true"></span>
     </div>`;
   }
 

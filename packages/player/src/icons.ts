@@ -14,12 +14,18 @@ export type IconName =
   | 'bulb-light'
   | 'bulb-dark'
   | 'info'
-  | 'globe';
+  | 'globe'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'lock'
+  | 'voice'
+  | 'voice-off';
 
 const line = (d: string, width = 1.8): SVGTemplateResult =>
   svg`<path d=${d} stroke="currentColor" stroke-width=${width} stroke-linecap="round" stroke-linejoin="round" />`;
 
 const bulb = 'M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2v.2h5v-.2c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3Z';
+const speaker = 'M4 9.5v5h3.5l4.5 4v-13l-4.5 4H4Z';
 
 const shapes: Record<IconName, SVGTemplateResult> = {
   play: svg`<path d="m9 5 11 7-11 7V5Z" fill="currentColor" />`,
@@ -41,6 +47,11 @@ const shapes: Record<IconName, SVGTemplateResult> = {
   'bulb-dark': svg`${line(bulb, 1.7)}${line('M9.5 19h5M10.5 21.5h3', 1.7)}`,
   info: svg`<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7" />${line('M12 11v5.2M12 7.7v.1', 1.9)}`,
   globe: svg`<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6" />${line('M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5c-2.3-2.4-3.4-5.2-3.4-8.5s1.1-6.1 3.4-8.5Z', 1.6)}`,
+  'chevron-left': line('m14.5 5.5-6.5 6.5 6.5 6.5', 2),
+  'chevron-right': line('m9.5 5.5 6.5 6.5-6.5 6.5', 2),
+  lock: svg`<rect x="5" y="10.5" width="14" height="10" rx="2.2" fill="currentColor" />${line('M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5', 2)}`,
+  voice: svg`${line(speaker, 1.7)}${line('M15.5 9.2a4 4 0 0 1 0 5.6M18.2 6.6a7.6 7.6 0 0 1 0 10.8', 1.7)}`,
+  'voice-off': svg`${line(speaker, 1.7)}${line('m16 9.8 4.4 4.4m0-4.4L16 14.2', 1.7)}`,
 };
 
 export function icon(name: IconName, size = 20): TemplateResult {

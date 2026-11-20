@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GuideAsset, GuideStep } from '@interactive-learning/protocol';
-import { stepMotion, toStage } from './StepMotion';
+import { closeUp, frameOf, stepMotion, toStage } from './StepMotion';
 
 const tall: GuideAsset = {
   id: 'page',
@@ -122,5 +122,117 @@ describe('motion of a step', () => {
     });
     expect(plain.view).toEqual({ x: 0, y: 0, width: 1, height: 1 });
     expect(plain.markersVisible).toBe(true);
+  });
+});
+
+describe('framing of the camera', () => {
+  const whole = { x: 0, y: 0, width: 1, height: 1 };
+  const at = (x: number, y: number, marker?: { x: number; y: number }) =>
+    step({
+      cursor: { x, y, action: 'click' },
+      annotations: marker ? [{ id: 'm', ...marker, title: 'Here', body: '' }] : [],
+    });
+
+  it('leaves the screen as it is when the action sits well', () => {
+    expect(frameOf(at(0.5, 0.4, { x: 0.55, y: 0.4 }))).toEqual(whole);
+  });
+
+  it('closes in on action low on screen and lifts it toward the middle', () => {
+    const low = at(0.3, 0.88, { x: 0.36, y: 0.88 });
+    const frame = frameOf(low);
+    expect(frame.width).toBeLessThan(1);
+    expect(frame.width / frame.height).toBeCloseTo(1);
+    // Against the bottom of the screenshot, never past it.
+    expect(frame.y + frame.height).toBeCloseTo(1);
+    expect(toStage(low.cursor!, frame).y).toBeLessThan(0.84);
+  });
+
+  it('does not move for action a hair off its place, as in a side menu', () => {
+    expect(frameOf(at(0.06, 0.5, { x: 0.12, y: 0.5 }))).toEqual(whole);
+  });
+
+  it('never hides part of the action to frame the rest', () => {
+    expect(frameOf(at(0.5, 0.06, { x: 0.5, y: 0.94 }))).toEqual(whole);
+  });
+
+  it('carries the cursor of a framed step from where the camera was', () => {
+    const low = at(0.3, 0.88, { x: 0.36, y: 0.88 });
+    const motion = stepMotion({
+      step: low,
+      asset: tall,
+      previous: undefined,
+      elapsedMs: 5000,
+      reducedMotion: false,
+    });
+    expect(motion.view).toEqual(frameOf(low));
+    expect(motion.cursor!.y).toBeCloseTo(toStage(low.cursor!, frameOf(low)).y);
+  });
+});
+
+describe('zoom toward the click', () => {
+  const screen: GuideAsset = { ...tall, height: 720 };
+  const whole = { x: 0, y: 0, width: 1, height: 1 };
+  const menu = step({
+    durationMs: 4000,
+    zoom: 2,
+    cursor: { x: 0.1, y: 0.2, action: 'click' },
+    annotations: [{ id: 'bank', x: 0.12, y: 0.2, title: 'Bank', body: '' }],
+  });
+  // No previous step: the pointer comes from the middle, 700 ms to the menu, then clicks.
+  const at = (elapsedMs: number, current = menu, reducedMotion = false) =>
+    stepMotion({ step: current, asset: screen, previous: undefined, elapsedMs, reducedMotion });
+
+  it('closes in while the pointer ends its way, and clicks close', () => {
+    expect(at(0).view).toEqual(whole);
+    const closing = at(350).view;
+    expect(closing.width).toBeGreaterThan(0.5);
+    expect(closing.width).toBeLessThan(1);
+    const close = at(1200);
+    // Twice closer, against the top left corner, which the menu cannot leave.
+    expect(close.view).toEqual({ x: 0, y: 0, width: 0.5, height: 0.5 });
+    expect(close.cursor!.x).toBeCloseTo(0.2);
+    expect(close.cursor!.y).toBeCloseTo(0.4);
+    expect(at(800).cursor!.ripple).toBeCloseTo(0.2);
+  });
+
+  it('goes back to the view of the step before the markers appear', () => {
+    expect(at(1200).markersVisible).toBe(false);
+    expect(at(1900).view.width).toBeGreaterThan(0.5);
+    const back = at(3000);
+    expect(back.view).toEqual(whole);
+    expect(back.cursor!.x).toBeCloseTo(0.1);
+    expect(back.markersVisible).toBe(true);
+    expect(back.target).toEqual({ x: 0.1, y: 0.2 });
+  });
+
+  it('stays still when motion is reduced, or when the step is too short to go back', () => {
+    const still = at(1200, menu, true);
+    expect(still.view).toEqual(whole);
+    expect(still.markersVisible).toBe(true);
+    const short = { ...menu, durationMs: 1200 };
+    expect(at(600, short).view).toEqual(whole);
+    expect(at(600, step({ durationMs: 4000, zoom: 2 })).view).toEqual(whole);
+  });
+
+  it('centers the point as far as the view allows', () => {
+    expect(closeUp(whole, { x: 0.5, y: 0.5 }, 2)).toEqual({
+      x: 0.25,
+      y: 0.25,
+      width: 0.5,
+      height: 0.5,
+    });
+    expect(closeUp(whole, { x: 0.95, y: 0.9 }, 2)).toEqual({
+      x: 0.5,
+      y: 0.5,
+      width: 0.5,
+      height: 0.5,
+    });
+    const part = { x: 0, y: 0.5, width: 1, height: 0.2 };
+    expect(closeUp(part, { x: 0.5, y: 0.51 }, 2)).toEqual({
+      x: 0.25,
+      y: 0.5,
+      width: 0.5,
+      height: 0.1,
+    });
   });
 });

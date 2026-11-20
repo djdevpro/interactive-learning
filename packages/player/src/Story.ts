@@ -18,3 +18,17 @@ export function storyLineAt(
   }
   return current;
 }
+
+/**
+ * The voice to hear at a moment of the guide: that of the line being told, from the time since
+ * its start. Nothing for a line without a voice.
+ */
+export function voiceAt(
+  story: readonly GuideStoryLine[] | undefined,
+  elapsedMs: number,
+  totalMs: number,
+): { index: number; audio: string; offsetMs: number } | null {
+  const told = storyLineAt(story, elapsedMs, totalMs);
+  if (!told?.line.audio) return null;
+  return { index: told.index, audio: told.line.audio, offsetMs: elapsedMs - told.line.atMs };
+}

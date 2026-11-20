@@ -7,6 +7,7 @@ import {
   type GuideAnnotation,
   type GuideViewport,
   type GuideStoryLine,
+  type GuideWord,
   type Point,
   type CaptureContext,
   type ImageMimeType,
@@ -165,6 +166,7 @@ function step(value: unknown, path: string): GuideStep {
       fail(path + '.transition', 'expected fade or cut');
     result.transition = obj.transition;
   }
+  if (obj.zoom !== undefined) result.zoom = number(obj.zoom, path + '.zoom', 1, 4);
   if (obj.source !== undefined) result.source = context(obj.source, path + '.source');
   unique(result.annotations, path + '.annotations');
   return result;
@@ -185,15 +187,45 @@ function viewport(value: unknown, path: string): GuideViewport {
 function unique(items: { id: string }[], path: string): void {
   if (new Set(items.map((i) => i.id)).size !== items.length) fail(path, 'duplicate identifiers');
 }
+/** A sound next to the guide, by a safe relative path, or embedded. */
+function audio(value: unknown, path: string): string {
+  const src = text(value, path, Math.ceil(MAX_IMAGE_BYTES * 1.4) + 100);
+  const safe = src.startsWith('data:')
+    ? /^data:audio\/(mpeg|mp4|ogg|wav|webm);base64,[A-Za-z0-9+/]+={0,2}$/.test(src)
+    : isSafeAssetSource(src);
+  if (!safe) fail(path, 'expected an embedded sound or a safe relative path');
+  return src;
+}
+/** The words of a voice, in the order it says them. */
+function words(value: unknown, path: string): GuideWord[] {
+  const result = array(value, path, 2000).map((entry, index) => {
+    const at = path + '[' + index + ']';
+    const word = object(entry, at);
+    const item = {
+      text: text(word.text, at + '.text', 100),
+      atMs: number(word.atMs, at + '.atMs', 0, 86_400_000),
+      endMs: number(word.endMs, at + '.endMs', 0, 86_400_000),
+    };
+    if (!item.text.trim()) fail(at + '.text', 'a word says something');
+    if (item.endMs < item.atMs) fail(at + '.endMs', 'a word ends after it starts');
+    return item;
+  });
+  for (let index = 1; index < result.length; index++)
+    if (result[index]!.atMs < result[index - 1]!.atMs)
+      fail(path + '[' + index + '].atMs', 'words come in the order they are said');
+  return result;
+}
 /** A story is told in order: each line starts after the one before it. */
 function story(value: unknown, path: string): GuideStoryLine[] {
   const lines = array(value, path).map((entry, index) => {
     const line = object(entry, path + '[' + index + ']');
-    const result = {
+    const result: GuideStoryLine = {
       atMs: number(line.atMs, path + '[' + index + '].atMs', 0, 86_400_000),
       text: text(line.text, path + '[' + index + '].text', 1000),
     };
     if (!result.text.trim()) fail(path + '[' + index + '].text', 'a line tells something');
+    if (line.audio !== undefined) result.audio = audio(line.audio, path + '[' + index + '].audio');
+    if (line.words !== undefined) result.words = words(line.words, path + '[' + index + '].words');
     return result;
   });
   for (let index = 1; index < lines.length; index++)

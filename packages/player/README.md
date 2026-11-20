@@ -146,6 +146,8 @@ declare module 'svelte/elements' {
 | `assetBaseUrl` / `asset-base-url`      | Prefix for relative image paths                     |
 | `showInformation` / `show-information` | Titles and descriptions, hidden by default          |
 | `showAddress` / `show-address`         | Page address of each step, hidden by default        |
+| `frame`                                | `browser`: a macOS browser window around the video  |
+| `muted`                                | Voice of the story off at the start                 |
 | `hideControls` / `hide-controls`       | No control bar, for a host with its own controls    |
 | `theme`                                | Property and attribute. `light`, `dark` or `system` |
 | `messages`                             | Property. Replaces any built-in text                |
@@ -161,7 +163,7 @@ declare module 'svelte/elements' {
 | `guide-load`                           | Event with `detail.guide`, once the player is ready |
 | `guide-error`                          | Event with `detail.message`, already translated     |
 
-`show-information`, `show-address` and `theme` reflect their attribute. When steps record the address of their page, an info button next to the bulb shows or hides it above the screenshot. The bulb button updates `theme` before it fires `theme-change`, so you can store the viewer choice. A boolean attribute is on when present, so remove it or set the property to `false` to turn it off.
+`frame="browser"` shows the video in a browser window of macOS, with its three lights and the address of the page of each step in the title bar, as Safari shows it; the info button then has nothing to toggle and steps aside. Full screen shows the screenshot alone. `show-information`, `show-address`, `frame`, `muted` and `theme` reflect their attribute. When steps record the address of their page, an info button next to the bulb shows or hides it above the screenshot. The bulb button updates `theme` before it fires `theme-change`, so you can store the viewer choice. A boolean attribute is on when present, so remove it or set the property to `false` to turn it off.
 
 Events bubble and cross the Shadow DOM boundary. Commands work after `guide-load`, and Play waits for the first image by itself. Moving the element in the page keeps the playback position, and removing it frees the player.
 
@@ -171,9 +173,17 @@ The player loads the screenshot on screen first, then the next ones in order, tw
 
 A step can show part of a tall screenshot: its `viewport` gives that part as fractions of the image, for example `{ "x": 0, "y": 0.4, "width": 1, "height": 0.25 }`, while its cursor and markers keep their positions on the whole image. Between two steps on the same screenshot, the player scrolls from one part to the other. A new screenshot fades in, or replaces the previous one at once when the step sets `"transition": "cut"`. Two screenshots of the same page, captured at the same width, fade in place before the scroll. The cursor waits where it last clicked while the page moves, then glides to its target, and the markers of the step appear once it arrives. Markers appear one after another and keep a 40 px hit area. A marker that would sit under the controls moves up, with a line back to its true position, and the guide coordinates stay unchanged.
 
+A step can zoom toward its click, as screen recording software does: with `"zoom": 1.6`, the camera closes in on the point of the cursor while the cursor gets there, stays close through the click, then goes back before the markers appear. It centers the point as far as the screenshot allows, and the screenshot stays sharp, since the player draws it at the size on screen. Keep zooms for a few clicks, on a small target or a key action. A step without a cursor, or with less than about a second after the click, does not zoom, and reduced motion turns zooms off.
+
 Pressing a marker pauses playback and opens its tooltip, which fades the screenshot behind it. Closing the tooltip resumes playback when the marker interrupted it. Esc closes the tooltip, then leaves full screen.
 
 A guide can tell a story under its screenshots, on its own timing rather than the steps'. Its `story` lists lines in the order they are told, each with the moment it starts, in milliseconds from the start of the guide: `"story": [{ "atMs": 0, "text": "The group has three companies." }, { "atMs": 9000, "text": "Each keeps its own accounts." }]`. The player shows one line at a time under the screen, from its start until the next line or the end of the guide. A line that starts after the last step is never told. The story follows playback: it stops while a marker is open and goes on with the guide.
+
+A line can also be read aloud, like the voice over of a video: its `audio` names a sound file next to the guide, as the screenshots are, or holds an embedded one, such as `{ "atMs": 0, "text": "The group has three companies.", "audio": "voice/intro.mp3" }`. The voice plays from the start of its line while the guide plays, at its speed, pauses with it and follows a seek. Keep each voice shorter than its line, since the next line stops it. A speaker button next to the bulb turns the voice off and on, and `muted` starts without it. Browsers play sound only once the viewer has acted on the page, and pressing Play counts.
+
+A voiced line can also list its `words`, each with the moment the voice says it, in milliseconds from the start of the line: `"words": [{ "text": "Deuxième", "atMs": 0, "endMs": 360 }, …]`. The player then shows them over the screen as the captions of a video: a few words at a time, cut at the end of a sentence, at a comma once a chunk holds three words, or at a pause of the voice, each word lit when it is said. They sit at the bottom, above the controls, in white with a dark outline, and their size follows the player. When every line has its words, the story under the screen gives way to them, and screen readers still get each line.
+
+The camera frames each step. When the cursor or a marker sits low on screen, where the captions and the controls are, it closes in, up to 1.45 times, and moves down to lift the action toward the middle, never past the screenshot; between two steps it glides from one framing to the next. The arrow, the markers and the click ripple shrink with a narrow player, down to 60 % below 880 px wide, and keep their place on the screenshot.
 
 While a guide plays, the controls fade out after a short time without pointer movement and a thin progress line stays visible. Moving the pointer, touching the player or focusing a control with the keyboard brings them back.
 
@@ -208,18 +218,19 @@ interactive-learning {
 }
 ```
 
-| Property       | Role                                    | Default                |
-| -------------- | --------------------------------------- | ---------------------- |
-| `--il-accent`  | Markers, start button and progress      | `#2f3542`              |
-| `--il-font`    | Font family                             | The page font          |
-| `--il-ink`     | Text                                    | Dark or light by theme |
-| `--il-muted`   | Secondary text                          | Dark or light by theme |
-| `--il-paper`   | Background                              | White or dark by theme |
-| `--il-surface` | Image placeholder and hover backgrounds | Light or dark by theme |
-| `--il-focus`   | Keyboard focus ring                     | Accent or white        |
-| `--il-radius`  | Corner radius                           | `0px`, square corners  |
+| Property              | Role                                    | Default                |
+| --------------------- | --------------------------------------- | ---------------------- |
+| `--il-accent`         | Markers, start button and progress      | `#2f3542`              |
+| `--il-font`           | Font family                             | The page font          |
+| `--il-ink`            | Text                                    | Dark or light by theme |
+| `--il-muted`          | Secondary text                          | Dark or light by theme |
+| `--il-paper`          | Background                              | White or dark by theme |
+| `--il-surface`        | Image placeholder and hover backgrounds | Light or dark by theme |
+| `--il-focus`          | Keyboard focus ring                     | Accent or white        |
+| `--il-radius`         | Corner radius                           | `0px`, square corners  |
+| `--il-screen-padding` | Room around the video                   | `12px`, `0` full width |
 
-The default look is plain, with square corners, a neutral accent and the page font.
+The default look is plain, with square corners, a neutral accent and the page font. The video keeps 12 px of room on each side, 8 px at most in a narrow player and none in full screen; `--il-screen-padding: 0` runs it to the edges.
 
 ## Other exports
 

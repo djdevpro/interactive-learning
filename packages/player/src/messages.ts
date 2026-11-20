@@ -27,6 +27,7 @@ export interface PlayerMessages {
   fullscreenExitFailed: string;
   playbackRate: (rate: string) => string;
   changePlaybackRate: string;
+  voice: (on: boolean) => string;
   stepCount: (count: number) => string;
   imageAlt: (stepTitle: string) => string;
   imageLoading: string;
@@ -79,6 +80,7 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
     fullscreenExitFailed: 'Leaving full screen failed. Press Esc.',
     playbackRate: (rate) => `Playback speed ${rate} times. Change speed`,
     changePlaybackRate: 'Change speed',
+    voice: (on) => (on ? 'Turn the voice off' : 'Turn the voice on'),
     stepCount: (count) => (count === 1 ? '1 step' : `${count} steps`),
     imageAlt: (stepTitle) => `Screenshot of ${stepTitle}`,
     imageLoading: 'Loading screenshot…',
@@ -131,6 +133,7 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
     fullscreenExitFailed: 'La sortie du plein écran a échoué. Utilisez la touche Échap.',
     playbackRate: (rate) => `Vitesse de lecture ${rate} fois. Changer la vitesse`,
     changePlaybackRate: 'Changer la vitesse',
+    voice: (on) => (on ? 'Couper la voix' : 'Remettre la voix'),
     stepCount: (count) => `${count} ${count > 1 ? 'étapes' : 'étape'}`,
     imageAlt: (stepTitle) => `Capture de l'étape ${stepTitle}`,
     imageLoading: 'Chargement de la capture…',
