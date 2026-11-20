@@ -1,5 +1,15 @@
 # @interactive-learning/recorder
 
+## 0.5.0
+
+### Minor Changes
+
+- 86df242: The recorder gives a guide its voice-over. `addVoiceOver` has ElevenLabs read each line of the story aloud and writes on each line the `audio` and the `words` that the player plays and shows as captions. A line already read is kept next to the guide under a name that follows from its text, its voice and its model, so it is never billed twice. Steps get longer where a line lasts longer than them, so the voice always ends before the next line. The key comes from `ELEVENLABS_API_KEY`; without it, new lines stay silent.
+
+### Patch Changes
+
+- d00d7a6: The AI skill now makes guides from Playwright scenarios run headless, which build the guide with the recorder, give it its voice-over and publish it to the public folder of the project. Each step says something, read aloud as the guide plays. The desktop studio is described as coming, and the skill no longer uses it unless the user asks for it.
+
 ## 0.4.0
 
 ### Minor Changes
