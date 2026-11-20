@@ -1,6 +1,6 @@
 {
   "name": "@interactive-learning/player",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Interactive guide player as a standard Web Component built with Lit, usable from HTML or any framework.",
   "type": "module",
   "license": "MIT",
