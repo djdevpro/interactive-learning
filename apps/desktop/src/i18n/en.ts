@@ -200,6 +200,7 @@ export const en = {
   'editor.stepOf': 'Step {number} of {count}',
   'editor.archiveFilter': 'Tutorial archive',
   'editor.openFailed': 'This tutorial could not be opened.',
+  'editor.reloaded': 'This tutorial was changed outside the studio. Its new version is open.',
   'editor.addressFailed': 'This address could not be opened.',
   'editor.pageSilent': 'The page did not answer.',
   'editor.recordingStopped': 'Recording stopped',

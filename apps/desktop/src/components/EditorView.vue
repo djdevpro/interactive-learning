@@ -19,6 +19,7 @@ import StepCanvas from './StepCanvas.vue';
 import Timeline from './Timeline.vue';
 import { presence } from '../agent/bridge';
 import type { EditorAgent } from '../agent/types';
+import { createDiskGuard } from '../disk';
 import { createHistory } from '../history';
 import { isMessageKey, t, type MessageKey } from '../i18n';
 import { buttonMenu, contextMenu, type MenuEntry } from '../menus';
@@ -61,7 +62,14 @@ export type Stage = 'canvas' | 'player' | 'recorder';
 const props = defineProps<{ path: string; startIn: 'record' | 'edit' }>();
 const emit = defineEmits<{ close: []; ready: []; settings: [] }>();
 
-const history = createHistory((guide) => library.writeTutorial(props.path, guide));
+const disk = createDiskGuard(
+  () => library.readTutorial(props.path),
+  (next) => library.writeTutorial(props.path, next),
+);
+const history = createHistory(async (next) => {
+  const elsewhere = await disk.write(next);
+  if (elsewhere) adopt(elsewhere);
+});
 const guide = history.guide;
 const site = shallowRef<SiteEntry | null>(null);
 const theme = shallowRef<ThemeEntry | null>(null);
@@ -115,7 +123,7 @@ function changeStep(stepId: string, edit: (step: GuideStep) => GuideStep, label:
 
 onMounted(async () => {
   try {
-    history.open(await library.readTutorial(props.path));
+    history.open(await disk.read());
   } catch (cause) {
     warn(cause, t('editor.openFailed'));
     emit('close');
@@ -164,12 +172,33 @@ onBeforeUnmount(() => {
 });
 
 /**
+ * Takes the version of the tutorial that was written outside the studio, by an agent or a script,
+ * in place of the copy kept here: saving the copy would have lost it.
+ */
+function adopt(next: GuideDocument): void {
+  history.open(next);
+  if (!steps.value.some((step) => step.id === selectedId.value)) select(steps.value[0]?.id ?? null);
+  notify(t('editor.reloaded'));
+}
+
+/** Reads the tutorial again when it was rewritten outside the studio since it was opened. */
+async function reload(): Promise<void> {
+  await history.flush();
+  const elsewhere = await disk.changed();
+  if (elsewhere) adopt(elsewhere);
+}
+
+/**
  * Removes the screenshots no step uses any more, once the guide that uses the others is saved.
- * The images of the guide in memory are kept too, whatever the disk holds.
+ * The images of the guide in memory are kept too, whatever the disk holds, and so are those of a
+ * version written on the disk meanwhile.
  */
 async function prune(): Promise<void> {
   await history.flush();
-  const keep = guide.value?.assets.map((asset) => asset.src) ?? [];
+  const onDisk = await library.readTutorial(props.path).catch(() => null);
+  const keep = [...(guide.value?.assets ?? []), ...(onDisk?.assets ?? [])].map(
+    (asset) => asset.src,
+  );
   await library.prune(props.path, keep).catch(() => 0);
 }
 
@@ -843,6 +872,7 @@ const agent: EditorAgent = {
 };
 
 defineExpose({
+  reload,
   stage,
   toggleRecording,
   go,
