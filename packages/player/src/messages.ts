@@ -36,6 +36,7 @@ export interface PlayerMessages {
   closeMarker: string;
   closeMarkerHint: string;
   showMarkers: string;
+  story: string;
   completed: string;
   emptyTitle: string;
   emptyBody: string;
@@ -87,6 +88,7 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
     closeMarker: 'Close marker',
     closeMarkerHint: 'Press Esc to close',
     showMarkers: 'Show markers',
+    story: 'Story',
     completed: 'Done',
     emptyTitle: 'This guide is taking shape',
     emptyBody: 'Add a first screenshot to walk through it step by step.',
@@ -138,6 +140,7 @@ export const playerMessages: Record<PlayerLocale, PlayerMessages> = {
     closeMarker: 'Fermer le repère',
     closeMarkerHint: 'Échap pour fermer',
     showMarkers: 'Voir les repères',
+    story: 'Histoire',
     completed: 'Terminé',
     emptyTitle: 'Le guide prend forme',
     emptyBody: 'Ajoutez une première capture pour découvrir votre parcours, étape par étape.',

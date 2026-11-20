@@ -53,6 +53,14 @@ export interface GuideStep {
   annotations: GuideAnnotation[];
   source?: CaptureContext;
 }
+/**
+ * A line of the story a guide tells under its screenshots, on its own timing rather than the
+ * steps': it starts `atMs` after the start of the guide and lasts until the next line, or the end.
+ */
+export interface GuideStoryLine {
+  atMs: number;
+  text: string;
+}
 export interface GuideDocument {
   schemaVersion: typeof SCHEMA_VERSION;
   id: string;
@@ -62,4 +70,6 @@ export interface GuideDocument {
   updatedAt: string;
   assets: GuideAsset[];
   steps: GuideStep[];
+  /** Lines in the order they are told. A line that starts after the last step never shows. */
+  story?: GuideStoryLine[];
 }

@@ -113,3 +113,30 @@ describe('full-page screenshots and transitions', () => {
     expect(step.transition).toBeUndefined();
   });
 });
+
+describe('the story of a guide', () => {
+  it('keeps its lines, in the order they are told', () => {
+    const guide = fixture();
+    guide.story = [
+      { atMs: 0, text: 'Le groupe a trois filiales.' },
+      { atMs: 2500, text: 'Chacune a son plan comptable.' },
+    ];
+    expect(validateGuide(JSON.parse(JSON.stringify(guide))).story).toEqual(guide.story);
+  });
+
+  it('refuses a line told before the one before it, or a line that says nothing', () => {
+    const disorder = fixture();
+    disorder.story = [
+      { atMs: 2000, text: 'Ensuite.' },
+      { atMs: 1000, text: 'Avant.' },
+    ];
+    expect(() => validateGuide(disorder)).toThrow(/after the one before/);
+    const empty = fixture();
+    empty.story = [{ atMs: 0, text: '  ' }];
+    expect(() => validateGuide(empty)).toThrow(/tells something/);
+  });
+
+  it('leaves a guide without a story as it was', () => {
+    expect(validateGuide(fixture()).story).toBeUndefined();
+  });
+});
