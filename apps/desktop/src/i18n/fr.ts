@@ -207,6 +207,8 @@ const texts: Record<MessageKey, Entry> = {
   'editor.stepOf': 'Étape {number} sur {count}',
   'editor.archiveFilter': 'Archive de tutoriel',
   'editor.openFailed': "Ce tutoriel n'a pas pu être ouvert.",
+  'editor.reloaded':
+    'Ce tutoriel a été modifié en dehors du studio. Sa nouvelle version est ouverte.',
   'editor.addressFailed': "Cette adresse n'a pas pu être ouverte.",
   'editor.pageSilent': "La page n'a pas répondu.",
   'editor.recordingStopped': 'Enregistrement arrêté',

@@ -92,7 +92,11 @@ const host: AgentHost = {
   },
   async open(path, mode) {
     const current = host.editor();
-    if (current?.path === path) return current;
+    // Already open: an agent or a script may have rewritten it since, so the editor reads it again.
+    if (current?.path === path) {
+      await editor.value?.reload();
+      return current;
+    }
     if (editor.value) await editor.value.close();
     return new Promise<EditorAgent>((resolve, reject) => {
       const entry = { resolve, reject };
