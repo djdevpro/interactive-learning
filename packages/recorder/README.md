@@ -107,6 +107,46 @@ Open an existing guide with `new RecordingSession('guides/demo/guide.json')`. PN
 
 The package also exports `validateGuide`, `createGuide`, `GuideValidationError`, `SCHEMA_VERSION` and the guide types.
 
+## Voice-over
+
+A guide can tell a story under its screenshots: `story` lines, each with the moment it starts. `addVoiceOver` has [ElevenLabs](https://elevenlabs.io) read each line aloud, like the voice-over of a video, and gives each line the two fields that the player plays: `audio`, the sound, and `words`, each word with the moment it is said, which the player shows as captions lit as they are spoken.
+
+```ts
+import { readFile, writeFile } from 'node:fs/promises';
+import { addVoiceOver, validateGuide } from '@interactive-learning/recorder';
+
+const guide = validateGuide(JSON.parse(await readFile('public/guides/demo/guide.json', 'utf8')));
+let atMs = 0;
+guide.story = guide.steps.map((step) => {
+  const line = { atMs, text: step.description || step.title };
+  atMs += step.durationMs;
+  return line;
+});
+const result = await addVoiceOver(guide, { guideDirectory: 'public/guides/demo' });
+await writeFile('public/guides/demo/guide.json', `${JSON.stringify(guide, null, 2)}\n`);
+console.log(result); // { spoken: 12, reused: 0, silent: 0, addedMs: 4300 }
+```
+
+- **Each line starts with a step**, and covers the steps until the next line. When a line, plus a pause of 800 ms, lasts longer than its steps, they get longer in proportion to their length, and the lines that follow move with them, so the voice always ends before the next line. `addedMs` gives the time added. A line that starts in the middle of a step is refused (`STORY_OFF_STEP`) before anything is read.
+- **A line already read is never billed again.** Its sound is `voice/<fingerprint>.mp3` next to `guide.json`, with `voice/<fingerprint>.json` that keeps its length and its words, the fingerprint following from the text, the voice and the model. Run it again after an edit and only the new or rewritten lines are read. Publish the `voice` folder with the guide. Sounds that no line uses any more are deleted from that folder, and other files there are left alone.
+- **The key comes from `ELEVENLABS_API_KEY`**, or `apiKey`. Never write it in the repository. Without a key, lines already read keep their voice and the others stay silent: `silent` counts them.
+- Each request sends the lines before and after, so the voice keeps one tone from a line to the next. A refusal of ElevenLabs throws a `RecorderError` with the code `VOICE_OVER_FAILED`; the lines read before it stay in the folder, so the next run does not pay them again.
+- `addVoiceOver` changes the guide in place and checks it. Write it afterwards.
+
+| Option           | Default                     | What it sets                                                       |
+| ---------------- | --------------------------- | ------------------------------------------------------------------ |
+| `guideDirectory` | required                    | The folder of `guide.json`; sound paths are relative to it.        |
+| `apiKey`         | `ELEVENLABS_API_KEY`        | The ElevenLabs key.                                                |
+| `voiceId`        | `YxrwjAKoUKULGd0g8K9Y`      | The voice (`DEFAULT_VOICE_ID`).                                    |
+| `modelId`        | `eleven_v4_turbo`           | The model (`DEFAULT_MODEL_ID`).                                    |
+| `folder`         | `voice`                     | The folder of the sounds, a single name inside `guideDirectory`.   |
+| `pauseMs`        | `800`                       | The silence left after a line before the next one.                 |
+| `prune`          | `true`                      | Deletes the sounds of the folder that no line uses any more.       |
+| `fetch`          | the global `fetch`          | The HTTP client, to go through a proxy or to test without network. |
+| `baseUrl`        | `https://api.elevenlabs.io` | The address of the API.                                            |
+
+The sounds are MP3 at 128 kbit/s, read through the `with-timestamps` endpoint of ElevenLabs. Players before 0.5.0 ignore `audio` and `words`.
+
 ## License
 
 MIT
