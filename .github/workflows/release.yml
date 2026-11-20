@@ -65,7 +65,8 @@ jobs:
       - uses: changesets/action/version@v2.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: pnpm version-packages && pnpm install --lockfile-only --ignore-scripts
+          # The action runs its script without a shell, so the whole command lives in package.json.
+          script: pnpm version-packages
           commit-message: 'chore: version public packages'
           pr-title: 'chore: prepare package versions'
           pr-draft: create

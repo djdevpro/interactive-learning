@@ -31,7 +31,7 @@
     "extension:dev": "pnpm --filter @interactive-learning/extension dev",
     "cli": "node packages/recorder/dist/cli.mjs",
     "changeset": "changeset",
-    "version-packages": "changeset version",
+    "version-packages": "changeset version && pnpm install --lockfile-only --ignore-scripts",
     "deploy": "gh workflow run release.yml --ref main -f create_version_pr=true",
     "release:desktop": "gh workflow run desktop-release.yml --ref main -f bump=patch",
     "release:desktop:minor": "gh workflow run desktop-release.yml --ref main -f bump=minor",
