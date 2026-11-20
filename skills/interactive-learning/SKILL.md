@@ -10,6 +10,22 @@ A guide, which the studio calls a tutorial, is a `guide.json` file plus an `asse
 - **Interactive Learning Studio, through its MCP server.** The desktop app of the user records the flow in its own browser, keeps the tutorial in the user's library and publishes it to the project. The user watches in its window, can take over at any moment, and comes back to the tutorial later to refine it.
 - **The command line**, when the studio is not connected. You drive a browser, and the `interactive-learning` tool writes the guide into the public folder of the project.
 
+When the user wants guides that a test run regenerates, with no studio and no agent, write them as scenarios of the project's end-to-end tests instead, as section 8 says.
+
+## Teach, do not just click
+
+A guide is watched by people who do not know the application yet. However you make it, follow these rules.
+
+- **Start where the viewer already is.** The viewer is signed in: never show the sign-in page. Sign in before the first capture, start from the home page and follow the menu as a user would, one step per click, rather than opening an address directly.
+- **Open a screen, then present it.** For each screen the guide talks about, one step clicks to it and the next presents it: what it is for in the step text, and its three to five key elements, each with a marker. Never name a tab or a section without opening it. Split a dense screen into two steps on the same screenshot.
+- **The step text carries the explanation.** Two or three sentences: what the screen shows and why it matters. A marker opens only when the viewer clicks it, so its text adds a detail, not the point.
+- **Markers sit beside the words, never on them.** The player draws a 24 px disc, about 30 px of a screenshot 1280 px wide shown in a 1000 px player, which hides any word under it. Measure the text of the target, not its box, since icons and padding are not text, and put the marker about 20 px from the text on a free side: right of a menu label, under a tab, left of a button and outside it. The cursor stays on the clicked element without covering its label, beside the text in a wide row, just under the word otherwise.
+- **Number in reading order.** In a step that presents a screen and then clicks, the markers of what the screen shows come first and the marker of the click last.
+- **Give time to read.** About 4 to 5 seconds for a click, and 2.5 seconds plus 1.5 seconds per marker for a screen being presented: 8 to 11 seconds for four or five markers. A dozen steps lasting a minute and a half is fine.
+- **One format, 16:9.** Capture every step at the same 16:9 viewport, such as 1280 × 720 at a device scale factor of 2. The player takes the shape of the screenshot, and a taller one puts the bottom of the screen under its controls.
+- **No personal data.** Do not capture lists of people, e-mail addresses or the real figures of a client when the guide is shown beyond that client. Present such a screen by its click and its text only, or record on demo data.
+- **Check every step before you publish**, with its markers drawn on its screenshot. Recapture a step where a marker hides a word, the cursor misses its target or the wrong element is hovered.
+
 ## 1. Use the studio when it is connected
 
 The studio is connected when you have the tools of its MCP server, `interactive-learning`, such as `list_library`, `create_tutorial`, `look` and `click` (in Claude Code, `mcp__interactive-learning__look`). The studio starts by itself when a tool needs it. Its server instructions give the whole workflow; here it is in short.
@@ -18,7 +34,7 @@ The studio is connected when you have the tools of its MCP server, `interactive-
 2. Call `create_tutorial` with a short title that starts with a verb. Its editor opens on the site, in the browser of the studio.
 3. Call `open_page` on the first page of the flow. If the flow needs a signed-in user, ask the user to sign in in the browser of the studio, and wait for them. Never type real credentials.
 4. Call `start_recording`, then repeat: `look`, read its screenshot and its elements, then `click` a ref. Each click becomes a step with the screen just before it, the cursor and a marker named after what was clicked. `type_text` fills a field with demo data, and the next click shows it filled. `capture_step` adds a screen without a click, such as the result at the end, with a marker on an element.
-5. Call `stop_recording`, then `read_tutorial`. Give each step a title that starts with a verb and one sentence of text with `update_step`, and each marker a short name and what it does with `update_marker`. Check doubtful steps with `show_step`. Delete a step that repeats the previous screen with nothing new.
+5. Call `stop_recording`, then `read_tutorial`. Give each step a title that starts with a verb and its explanation with `update_step`, and each marker a short name and what it does with `update_marker`, as the first section says. Check every step with `show_step`, the markers included. Delete a step that repeats the previous screen with nothing new.
 6. Call `publish_tutorial` when the site has a publish folder. The tutorial lands in `<publish_to>/<tutorial>/guide.json`, which the page of section 6 shows.
 7. Report the tutorial with its site, theme and title, its steps, where it was published, and anything you could not capture. Tell the user it stays in their library, where they can open it, refine it and publish it again.
 
@@ -51,7 +67,7 @@ npm init -y && npm install playwright
 npx playwright install chromium
 ```
 
-With Playwright, drive the flow from a short Node script kept outside the project. Keep a fixed viewport such as 1280 by 800. Before each action, take `page.screenshot({ path, fullPage: false })`, read the click target with `locator.boundingBox()` and the address with `page.url()`. This script only drives the browser: never write it as a test and never add it to the project.
+With Playwright, drive the flow from a short Node script kept outside the project. Keep a fixed 16:9 viewport, such as 1280 by 720 with `deviceScaleFactor: 2`. Before each action, take `page.screenshot({ path, fullPage: false })`, read the click target with `locator.boundingBox()` and the address with `page.url()`. This script only drives the browser: never write it as a test and never add it to the project, unless the user wants guides that the tests regenerate (section 8).
 
 ## 4. Put the guide in the public folder of the site
 
@@ -73,9 +89,9 @@ Every screenshot you import is copied into `public/guides/register-trainee/asset
 
 Save your raw screenshots in a temporary folder outside the public folder, because `capture add` copies them. Repeat for every step of the flow.
 
-1. Bring the page to the state you want to show and wait until it is stable, with content loaded and animations finished.
+1. Bring the page to the state you want to show and wait until it is stable, with content loaded and animations finished. Hover the element you are about to click, then hover it again just before the screenshot: an animation, such as a menu that scrolls as a group opens, can slide another element under the pointer.
 2. Screenshot the visible viewport only, not the full page, as PNG, JPEG or WebP. Take it before the click you want to show. For a form, take it once the form is filled in and before it is submitted, then take the result on the next step.
-3. Measure the click target in that same viewport, in CSS pixels. Then `x = targetX / viewportWidth` and `y = targetY / viewportHeight`, both between 0 and 1. If you are not sure of the position, leave `--x` and `--y` out.
+3. Measure the click target in that same viewport, in CSS pixels, and place the cursor and its marker as the first section says. Then `x = targetX / viewportWidth` and `y = targetY / viewportHeight`, both between 0 and 1. If you are not sure of the position, leave `--x` and `--y` out.
 4. Import the screenshot with the address of the page in `--url`. The player can show it above the screenshot. The JSON output gives the `stepId`.
 
 ```sh
@@ -93,8 +109,8 @@ Follow these rules, with the studio too.
 - Never change the page, its DOM or its styles to get a nicer screenshot, and never invent an image.
 - A position always belongs to the screenshot of the same step. Never reuse a click position on the next page.
 - Use demo data. Everything you do in the browser really happens in the application.
-- Keep titles short and start them with a verb. Put details in markers.
-- A step lasts 2500 ms. Use `--duration-ms 3000` to `3500` for dense screens.
+- Keep titles short and start them with a verb. The step text explains, and markers add details.
+- Set `--duration-ms` from the reading times of the first section.
 
 ## 6. Validate and show the guide
 
@@ -134,6 +150,15 @@ il studio --guide public/guides/register-trainee/guide.json
 ```
 
 It opens their browser and prints its address; give them that address too. Each save writes `guide.json` and its images in place, so read `guide.json` again before you change the guide afterwards.
+
+## 8. Regenerate guides from the end-to-end tests
+
+When the project has Playwright end-to-end tests and the user wants guides that a test run regenerates, with no studio and no agent, write each guide as a scenario beside the tests, such as `e2e/tuto/<module>/<theme>.spec.ts`, with its own Playwright configuration and a script such as `pnpm tuto`. These scenarios publish guides; they check nothing.
+
+- Sign in through the fixtures of the tests before the first capture, then follow the rules of the first section.
+- Add `@interactive-learning/recorder` as a dev dependency and build the guide with its API: `RecordingSession.create`, `addCapture`, `addAnnotation` and `validate`. Build it in a temporary folder, then replace the published guide in `<public folder>/guides/<module>/<slug>/` in one go. Keep the `id` and `createdAt` of the guide already published.
+- The scenario is the source: a text edited by hand in `guide.json` is lost at the next run, so texts change in the scenario.
+- On Windows, copy and delete the files one by one: with Node.js 24, `fs.cpSync` stops the process on a path that holds a character outside ASCII, and `fs.rmSync` leaves such a folder in place without an error.
 
 ## Update an existing guide
 
