@@ -6,6 +6,7 @@ import {
   type GuideStep,
   type GuideAnnotation,
   type GuideViewport,
+  type GuideStoryLine,
   type Point,
   type CaptureContext,
   type ImageMimeType,
@@ -184,6 +185,22 @@ function viewport(value: unknown, path: string): GuideViewport {
 function unique(items: { id: string }[], path: string): void {
   if (new Set(items.map((i) => i.id)).size !== items.length) fail(path, 'duplicate identifiers');
 }
+/** A story is told in order: each line starts after the one before it. */
+function story(value: unknown, path: string): GuideStoryLine[] {
+  const lines = array(value, path).map((entry, index) => {
+    const line = object(entry, path + '[' + index + ']');
+    const result = {
+      atMs: number(line.atMs, path + '[' + index + '].atMs', 0, 86_400_000),
+      text: text(line.text, path + '[' + index + '].text', 1000),
+    };
+    if (!result.text.trim()) fail(path + '[' + index + '].text', 'a line tells something');
+    return result;
+  });
+  for (let index = 1; index < lines.length; index++)
+    if (lines[index]!.atMs <= lines[index - 1]!.atMs)
+      fail(path + '[' + index + '].atMs', 'a line starts after the one before it');
+  return lines;
+}
 export function validateGuide(input: unknown): GuideDocument {
   const obj = object(input, 'guide');
   if (obj.schemaVersion !== SCHEMA_VERSION)
@@ -198,6 +215,7 @@ export function validateGuide(input: unknown): GuideDocument {
     assets: array(obj.assets, 'guide.assets').map((a, i) => asset(a, 'guide.assets[' + i + ']')),
     steps: array(obj.steps, 'guide.steps').map((s, i) => step(s, 'guide.steps[' + i + ']')),
   };
+  if (obj.story !== undefined) result.story = story(obj.story, 'guide.story');
   unique(result.assets, 'guide.assets');
   unique(result.steps, 'guide.steps');
   const assetIds = new Set(result.assets.map((a) => a.id));

@@ -173,6 +173,8 @@ A step can show part of a tall screenshot: its `viewport` gives that part as fra
 
 Pressing a marker pauses playback and opens its tooltip, which fades the screenshot behind it. Closing the tooltip resumes playback when the marker interrupted it. Esc closes the tooltip, then leaves full screen.
 
+A guide can tell a story under its screenshots, on its own timing rather than the steps'. Its `story` lists lines in the order they are told, each with the moment it starts, in milliseconds from the start of the guide: `"story": [{ "atMs": 0, "text": "The group has three companies." }, { "atMs": 9000, "text": "Each keeps its own accounts." }]`. The player shows one line at a time under the screen, from its start until the next line or the end of the guide. A line that starts after the last step is never told. The story follows playback: it stops while a marker is open and goes on with the guide.
+
 While a guide plays, the controls fade out after a short time without pointer movement and a thin progress line stays visible. Moving the pointer, touching the player or focusing a control with the keyboard brings them back.
 
 On the focused player, Space plays or pauses, the arrow keys change step, and Home and End jump to the start or the end. The speed button cycles through 1×, 1.5× and 2× without changing the durations stored in the guide. Reduced motion preferences turn every animation off.

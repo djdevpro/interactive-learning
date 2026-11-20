@@ -1,6 +1,7 @@
 import { LitElement, html, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { live } from 'lit/directives/live.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -28,6 +29,7 @@ import {
   viewOf,
   type StepMotion,
 } from './StepMotion';
+import { storyLineAt } from './Story';
 import type { PlayerControls, PlayerEventMap, PlayerProperties } from './types';
 
 const hostStyles = `:host { display: block; min-width: 0; }
@@ -839,7 +841,9 @@ export class InteractiveLearningElement
       }
       ${
         this.#hasSteps
-          ? html`${this.#renderScreen(text, colorScheme)}${this.#renderInformation(text)}`
+          ? html`${this.#renderScreen(text, colorScheme)}${this.#renderStory(
+              text,
+            )}${this.#renderInformation(text)}`
           : html`<div class="il-guide__empty" role="status">
               <span class="il-guide__empty-symbol">${icon('image', 30)}</span>
               <h3>${view.playbackError ? text.unavailableTitle : text.emptyTitle}</h3>
@@ -1217,6 +1221,29 @@ export class InteractiveLearningElement
             </div>`
           : nothing
       }`;
+  }
+
+  /**
+   * The story told under the screen, one line at a time, on its own timing rather than the steps'.
+   * It follows the time of the guide, so it stops when playback pauses, a marker being read
+   * included, and goes on when playback does.
+   */
+  #renderStory(text: PlayerMessages) {
+    const { guide, snapshot } = this.#view;
+    if (!guide?.story?.length) return nothing;
+    const told = storyLineAt(guide.story, snapshot.elapsedMs, snapshot.totalMs);
+    return html`<div
+      class="il-guide__story"
+      role="region"
+      aria-label=${text.story}
+      aria-live="polite"
+    >
+      ${
+        told
+          ? keyed(told.index, html`<p class="il-guide__story-line">${told.line.text}</p>`)
+          : nothing
+      }
+    </div>`;
   }
 
   /** True when at least one step knows the address of its page. */
