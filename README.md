@@ -66,7 +66,7 @@ Both packages are on npm, [`@interactive-learning/player`](https://www.npmjs.com
 
 ## Develop
 
-Node.js 22.18 or later and pnpm 9.10.0.
+Node.js 22.18 or later and pnpm 10.34.9.
 
 ```sh
 pnpm install
